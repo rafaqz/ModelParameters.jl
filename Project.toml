@@ -3,8 +3,14 @@ uuid = "4744a3fa-6c31-4707-899e-a3298e4618ad"
 authors = ["Rafael Schouten <rafaelschouten@gmail.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
+Flatten = "4c728ea3-d9ee-5c9a-9642-b6f7d7dc04fa"
+
 [compat]
 julia = "1"
+Flatten = "0.3"
+Tables = "1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
