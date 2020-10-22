@@ -1,5 +1,4 @@
 module ModelParameters
-
 # Use the README as the module docs
 @doc let
     path = joinpath(dirname(@__DIR__), "README.md")
@@ -7,12 +6,16 @@ module ModelParameters
     read(path, String)
 end ModelParameters
 
-using Tables, PrettyTables, Flatten
-
+using Flatten,
+      PrettyTables, 
+      Tables
+      
 export Model, Param
 
-export param, strip 
+export params, strip, update
 
+include("param.jl")
+include("model.jl")
 include("tables.jl")
 
 end
