@@ -6,13 +6,18 @@ module ModelParameters
     read(path, String)
 end ModelParameters
 
-using Flatten,
+using AbstractNumbers,
+      ConstructionBase,
+      Flatten,
       PrettyTables, 
+      Setfield,
       Tables
       
-export Model, Param
+export AbstractModel, MutableModel, Model, StaticModel
 
-export params, strip, update
+export Param, AbstractParam
+
+export params, paramvals, simplify, update, update!
 
 include("param.jl")
 include("model.jl")

@@ -2,55 +2,114 @@
 """
 Abstract supertype for Model, useful if you need to extend
 the behaviour of this package.
+
+The method required for an `AbstractModel` are `Base.parent` to 
+return the parent model object, and [`setparent!`](@ref) to update it.
+
+`AbstractModel` must be a mutable struct with an untyped field to hold
+the parent object - it is the container for immutable objects that will 
+be modified.
 """
-abstract type AbstractModel{K,I} end
+abstract type AbstractModel end
 
-# units field special-casing trait
-struct WithUnits end
-struct NoUnits end
+abstract type MutableModel <: AbstractModel end
 
-hasunits(m::AbstractModel) = hasfield(fields(m), :units) ? HasUnits() : NoUnits()
+Base.parent(m::AbstractModel) = getfield(m, :parent)
+setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
 
 """
-    val(m::AbstractModel)
-    val(NoUnits(), m::AbstractModel)
+    paramvals(m::AbstractModel)
+    paramvals(NoUnits(), m::AbstractModel)
 
-If there is a units field val will include the units. 
+Returns the value of the parameter.
+
+If there is a units field `val` will include the units. 
 This design is so that units don't have to be repeatedy used 
 on value and bounds, and can be in separate columns in tables.
 
 If you want `val` with no units when there is a units fiels, you
-can explicitly call `val(NoUnits(), x)`.
+can explicitly call `paramvals(NoUnits(), x)`.
 """
-val(m::AbstractModel) = val(hasunits(m), m)
-val(::WithUnits, m::AbstractModel) = map(p -> p.val * p.units, params(inner(m)))
-val(::NoUnits, m::AbstractModel) = map(val, params(inner(m)))
+paramvals(m::AbstractModel) = map(val, params(parent(m)))
 
-param(m::AbstractModel) = param(inner(m))
-strip(m::AbstractModel) = strip(inner(m))
+hasunits(p::AbstractModel) = 
+
+params(m::AbstractModel) = params(parent(m))
+paramfieldnames(m::AbstractModel) = Flatten.fieldnameflatten(parent(m), AbstractParam)
+paramparenttypes(m::AbstractModel) = 
+    Flatten.metaflatten(parent(m), _fieldparentbasetype_meta, AbstractParam)
+simplify(m::AbstractModel) = simplify(parent(m))
+
+_fieldparentbasetype_meta(T, ::Type{Val{N}}) where N = T.name.wrapper
 
 # Tuple-like indexing and iterables interface
 
 # It may seem expensive always calling `param`, but flattening the 
-# object occurs once at compile-time, and should have no cost here.
-Base.length(m::AbstractModel) = length(param(m))
-Base.size(m::AbstractModel) = (length(param(m)),)
-Base.first(m::AbstractModel) = first(param(m))
-Base.last(m::AbstractModel) = last(param(m))
+# object occurs once at compile-time, and should have very little cost here.
+Base.length(m::AbstractModel) = length(params(m))
+Base.size(m::AbstractModel) = (length(params(m)),)
+Base.first(m::AbstractModel) = first(params(m))
+Base.last(m::AbstractModel) = last(params(m))
 Base.firstindex(m::AbstractModel) = 1
-Base.lastindex(m::AbstractModel) = length(param(m))
-Base.getindex(m::AbstractModel, i) = getindex(param(m), i)
-Base.iterate(m::AbstractModel) = (first(param(m)), 1)
-Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (param(m)[s], s + 1)
+Base.lastindex(m::AbstractModel) = length(params(m))
+Base.getindex(m::AbstractModel, i) = getindex(params(m), i)
+Base.iterate(m::AbstractModel) = (first(params(m)), 1)
+Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (params(m)[s], s + 1)
 
 # Vector methods
-Base.collect(m::AbstractModel) = collect(val(m))
-Base.vec(m::AbstractModel) = [v for v in val(m)]
+Base.collect(m::AbstractModel) = collect(paramvals(m))
+Base.vec(m::AbstractModel) = [v for v in paramvals(m)]
 Base.Array(m::AbstractModel) = vec(m)
 
 # Dict methods - data as columns
-Base.keys(m::AbstractModel{K}) where K = K
-Base.getproperty(m::AbstractModel, nm::Symbol) = map(p -> getproperty(p, nm), param(m))
+Base.haskey(m::AbstractModel, key::Symbol) = key in keys(m) 
+Base.hasproperty(m::AbstractModel, key::Symbol) = haskey(m, key)
+Base.keys(m::AbstractModel) = (:component, :field, keys(first(params(m)))...)
+@inline Base.getproperty(m::AbstractModel, nm::Symbol) = 
+    if nm == :component
+        paramparenttypes(m)
+    elseif nm == :field
+        paramfieldnames(m)
+    else
+        map(p -> getproperty(p, nm), params(m))
+    end
+@inline Base.setproperty!(m::AbstractModel, nm::Symbol, x) = 
+    if nm == :component
+        erorr("cannot set :component property")
+    elseif nm == :field
+        erorr("cannot set :field property")
+    else
+        newparent = if nm in keys(m)
+            _setproperty(parent(m), nm, Tuple(x))
+        else 
+            _addproperty(parent(m), nm, Tuple(x))
+        end
+        setparent!(m, newparent)
+    end
+
+# TODO do this with lenses
+_setproperty(obj, nm::Symbol, xs::Tuple) = begin
+    lens = Setfield.PropertyLens{nm}() 
+    newparams = map(params(obj), xs) do par, x
+        Param(set(fields(par), lens, x))
+    end
+    reconstruct(obj, newparams, AbstractParam)
+end
+_addproperty(obj, nm::Symbol, xs::Tuple) = begin
+    newparams = map(params(obj), xs) do par, x
+        Param((; fields(par)..., (nm => x,)...))
+    end
+    reconstruct(obj, newparams, AbstractParam)
+end
+
+
+Base.show(io::IO, m::AbstractModel) = begin
+    show(typeof(m)) 
+    println(io, " with parent object of type: \n")
+    show(typeof(parent(m))) 
+    println(io, "\n\nAnd parameters:")
+    pretty_table(io, m, [keys(m)...])
+end
 
 
 """
@@ -59,37 +118,90 @@ Base.getproperty(m::AbstractModel, nm::Symbol) = map(p -> getproperty(p, nm), pa
 A wrapper type for any model containing [`Param`](@ref) parameters -
 essentially marking that a custom struct or Tuple holds `Param` fields.
 
-This allows you to index into the model as if it is a linear list of parameters,
-treat it as an iterable, or use the Tables.jl interface to save or update the model 
-to/from csv, a `DataFrame` or any source that implements the Tables.jl interface.
+This allows you to index into the model as if it is a linear list of parameters, 
+or named columns of values and paramiter metadata. You can treat it as an iterable, 
+or use the Tables.jl interface to save or update the model to/from csv, a `DataFrame` 
+or any source that implements the Tables.jl interface.
 """
-mutable struct Model{K,I} <: AbstractModel{K,I}
-    inner::I
+mutable struct Model <: MutableModel
+    parent
+    function Model(parent)
+        # Need at least 1 AbstractParam field to be a Model
+        checkhasparam(parent)
+        # Make sure all params have all the same keys.
+        expandedpars = _expandkeys(params(parent))
+        expanded = Flatten.reconstruct(parent, expandedpars, AbstractParam)
+        new(expanded)
+    end
 end
-Model(inner) = begin
-    # Need at least 1 AbstractParam field to be a Model
-    checkhasparam(inner)
-    K = keys(first(param(inner)))
-    Model{K,typeof(inner)}(inner)
-end
+Model(m::AbstractModel) = Model(parent(m))
 
-"""
-    inner(model::AbstractModel)
+struct IsaTable end
+struct NotaTable end
 
-Get the original inner model without the `Model` wrapper.
-"""
-inner(m::Model) = m.inner
+hastable(x) = Tables.istable(x) ? IsATable() : NoaATable() 
 
 """
     update(model::AbstractModel, vals::Tuple)
 
 """
-update(m::Model, vals::AbstractArray) = update(m, Tuple(vals))
-update(m::Model, vals::Tuple) = begin
-    newparams = map(flatten(m.inner), values) do param, value
-        @set param.fields.value = value
+update!(m::MutableModel, vals::AbstractVector{<:AbstractParam}) = 
+    update!(m, Tuple(vals))
+update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}}) =
+    setparent!(m, reconstruct(parent(m), params, Param))
+update!(m::MutableModel, table) = begin
+    cols = (c for c in Tables.columnnames(table) if !(c in (:component, :field)))
+    for col in cols
+        setproperty!(m, col, Tables.getcolumn(table, col)) 
     end
-    update(m, newparams)
+    m
 end
-update(m::Model, params::Tuple{<:Param,Vararg{<:Param}}) =
-    m.inner = reconstruct(m.inner, params, Param) 
+
+update(x, values::AbstractVector) = update(m, Tuple(vals))
+update(x, values) = begin
+    newparams = map(params(x), values) do param, value
+        Param(NamedTuple{keys(param)}((value, Base.tail(fields(param))...)))
+    end
+    reconstruct(x, newparams)
+end
+
+"""
+    StaticModel(x)
+
+Like [`Model`](@ref) but immutable. This means it can't be used as a 
+handle to say - add columns to your model.
+
+You can instead rebuild it immutably. Mot operations on static model
+are fast, many are completely compiled away. This means you can use 
+methods on it in inner loops with no overhead.
+"""
+struct StaticModel{P} <: AbstractModel
+    parent::P
+    function StaticModel(parent)
+        # Need at least 1 AbstractParam field to be a Model
+        checkhasparam(parent)
+        expandedpars = _expandkeys(params(parent))
+        expanded = Flatten.reconstruct(parent, expandedpars, AbstractParam)
+        # Make sure all params have all the same keys.
+        new{typeof(expanded)}(expanded)
+    end
+end
+StaticModel(m::AbstractModel) = StaticModel(parent(m))
+
+update(x::StaticModel, values) = StaticModel(update(parent(m), vals))
+
+# Model Utils
+
+_expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), AbstractParam)
+# Expand all Params to have the same keys, filling with `nothing`
+# This probably will allocate due to `union` returning `Vector`
+function _expandkeys(x) 
+    pars = params(x)
+    allkeys = Tuple(union(map(keys, pars)...))
+    newpars = map(pars) do par
+        vals = map(allkeys) do key
+            get(par, key, nothing)
+        end
+        Param(NamedTuple{allkeys}(vals))
+    end
+end
