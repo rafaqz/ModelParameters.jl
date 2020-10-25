@@ -8,5 +8,5 @@ CurrentModule = ModelParameters
 ```
 
 ```@autodocs
-Modules = [ModelParameters]
+Modules = [ModelParameters, InteractModels]
 ```

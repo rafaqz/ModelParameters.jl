@@ -1,4 +1,4 @@
-using ModelParameters, InteractiveModels, Flatten, DataFrames, 
+using ModelParameters, InteractModels, Flatten, DataFrames, 
       Unitful, Plots, ColorSchemes, Colors, Interact, Test, Aqua
 
 @testset "param math" begin
