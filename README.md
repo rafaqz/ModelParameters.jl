@@ -7,26 +7,33 @@
 
 **Work in Progress**
 
+To dev ModelParameters and InteractModels locally, do:
+
+```julia
+] dev "https://github.com/rafaqz/ModelParameters.jl"
+dev "/your/dev/folder/ModelParameters/src/InteractModels
+```
+
 Model parameters simplifies the process of writing and using complex models. 
 
 It provides linear indexing, a Tables.jl interface, and controllable Interact.jl
-Interfaces vie InteractModels.jl, for any object of arbitrary complexity but
+Interfaces via InteractModels.jl, for any object of arbitrary complexity - but
 fixed size.
 
 # Use case
 
-Once a model grows beyond a certain complexity it often becomes preferable to
-organise it in modular way, and to reuse components used in other models. This
-is seen in climate models and land models related to CLIMA project, and
-ecological models like DynamicGrids.jl and GrowthMaps.jl.
+Once a model grows beyond a certain complexity it becomes preferable to organise
+it in modular way, and to reuse components in variants of the model. This is
+seen in climate models and land models related to CLIMA project, and ecological
+models like DynamicGrids.jl and GrowthMaps.jl.
 
 Model structure may be structured as a composed nested hierarchy of structs,
-tuple chains of objects, NameTuples, or some combination of the above.
+`Tuple` chains of objects, `NameTuple`s, or some combination of the above.
 
 The problem comes when trying to use these models in Optim.jl, or run
 sensitivity analysis on them with DiffEqSensitivity.jl, or pass priors to a
-Bayesian modelling package. These packages often need parameters, bounds and
-priors as a `Vector`. Writing these out for every model combination is error
+Bayesian modelling package. These packages often need starting values, bounds
+and priors as `Vector`s. Writing these out for every model combination is error
 prone and inefficient.
 
 ModelParameters.jl can convert any arbitrarily complex model to vectors of
@@ -72,43 +79,6 @@ julia> model.val
 (0.8, 0.5, 0.8, 0.001)
 ```
 
-# Using with Optim.jl
-
-
-# Swapping number types
-
-ModelParameters makes it very easy to make modifications to all of your model
-parameters. You can simply do: 
-
-```julia
-model.val = map(Float32, model.val)
-```
-
-To update all model values to be `Float32`. Or whatever you like.
-
-You can also add new columns to all model parameters directly from the model:
-
-```julia
-model.bounds = ((1, 4), (0.0, 1.0), 0.0, 0.1) 
-```
-
-
-# Tables.jl interface
-
-You can also save and import your model parameters to/from CSV or any other kind
-of Table or `DataFrame` using the Tables.jl interface.
-
-```julia
-
-```
-
-
-# Live Interact.jl models
-
-Any model can have an Interact.jl web interface defined for it automatically, by
-providing a function to turn you model into a plot or other visualisation. The
-interface, slider controllers and model updates are all taken care of for you.
-
 # What are Params?
 
 `Param` is a wrapper for your parameter value and any metadata you need to track
@@ -136,6 +106,49 @@ and when using `simplify` on the models. The `InteractModel` may also combine
 # What is a Model?
 
 A model is another wrapper type, this time for you whole model - whatever it is.
-It gives you a Tables.jl interface for you model, provides a table of parameters
-in the REPL, and give you some powerful tools for makeing changes to your model.
+Its a mutable and untyped containers for you typed, immutable models, so the
+model can be updated in a ui or using `setproperties!` and you keep a handle to
+the updated version. `Model` gives you a Tables.jl interface, provides a table
+of parameters in the REPL, and give you some powerful tools for making changes
+to your model.
 
+An `InteractModel` from InteractModels.jl (also in this repository) is
+identical, these with the addition of an Interact.jl interface. Additional types
+can be added to provide more functionality over time.
+
+# Setting model values 
+
+### Swapping number types
+
+ModelParameters makes it very easy to make modifications to your model
+parameters. To update all model values to be `Float32`, you can simply do: 
+
+```julia
+model.val = map(Float32, model.val)
+```
+
+### Setting new values
+
+You can also add new columns to all model parameters directly from the model:
+
+```julia
+model.bounds = ((1.0, 4.0), (0.0, 1.0), (0.0, 0.1), (0.0, 100.0))
+```
+
+# Using with Optim.jl
+
+
+# Tables.jl interface
+
+You can also save and import your model parameters to/from CSV or any other kind
+of Table or `DataFrame` using the Tables.jl interface:
+
+```julia
+update!(model, table)
+```
+
+# Live Interact.jl models
+
+Any model can have an Interact.jl web interface defined for it automatically, by
+providing a function to turn you model into a plot or other visualisation. The
+interface, slider controllers and model updates are all taken care of for you.
