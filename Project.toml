@@ -24,10 +24,8 @@ julia = "1"
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-Interact = "c601a237-2ae4-5e1e-952c-7a85b0c7eef1"
-InteractModels = "546b680c-e627-4c75-86f8-7ef2c81e5d51"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [targets]
-test = ["Aqua", "DataFrames", "Interact", "InteractModels", "Test", "Unitful"]
+test = ["Aqua", "DataFrames", "Test", "Unitful"]

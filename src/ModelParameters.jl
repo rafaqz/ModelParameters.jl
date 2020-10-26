@@ -6,17 +6,16 @@ module ModelParameters
     read(path, String)
 end ModelParameters
 
-using AbstractNumbers,
-      PrettyTables, 
-      Setfield
-
-import Tables, 
+import AbstractNumbers,
+       ConstructionBase,
        Flatten,
-       ConstructionBase
+       PrettyTables, 
+       Setfield,
+       Tables 
       
 export AbstractModel, MutableModel, Model, StaticModel
 
-export Param, AbstractParam
+export AbstractParam, Param
 
 export params, paramval, simplify, update, update!
 

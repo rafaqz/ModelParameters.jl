@@ -64,7 +64,7 @@ Base.show(io::IO, m::AbstractModel) = begin
     println(io, " with parent object of type: \n")
     show(typeof(parent(m))) 
     println(io, "\n\nAnd parameters:")
-    pretty_table(io, m, [keys(m)...])
+    PrettyTables.pretty_table(io, m, [keys(m)...])
 end
 
 
@@ -98,7 +98,7 @@ setparent!(m::MutableModel, newparent) = setfield!(m, :parent, newparent)
 _setproperty(obj, nm::Symbol, xs::Tuple) = begin
     lens = Setfield.PropertyLens{nm}() 
     newparams = map(params(obj), xs) do par, x
-        Param(set(fields(par), lens, x))
+        Param(Setfield.set(fields(par), lens, x))
     end
     Flatten.reconstruct(obj, newparams, AbstractParam)
 end

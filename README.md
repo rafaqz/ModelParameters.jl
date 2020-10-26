@@ -17,8 +17,7 @@ dev "/your/dev/folder/ModelParameters/src/InteractModels
 Model parameters simplifies the process of writing and using complex models. 
 
 It provides linear indexing, a Tables.jl interface, and controllable Interact.jl
-Interfaces via InteractModels.jl, for any object of arbitrary complexity - but
-fixed size.
+Interfaces (via InteractModels.jl), for any object of any complexity.
 
 # Use case
 
@@ -36,11 +35,10 @@ Bayesian modelling package. These packages often need starting values, bounds
 and priors as `Vector`s. Writing these out for every model combination is error
 prone and inefficient.
 
-ModelParameters.jl can convert any arbitrarily complex model to vectors of
-bounds, priors, and anything else you need - by wrapping you parameters in
-`Param` objects that hold the value and metadata. You can also strip this
-information from the model and return it with just the parameter values - to
-reduce complexity of the model type when you are seriously running it.
+ModelParameters.jl can convert any arbitrarily complex model of structs,
+`Tuple`s and `NamedTuple`s into vectors of values, bounds, priors, and anything
+else you need. This is facilitated by wrapping your parameters, wherever they
+are in the model, in a `Param`:
 
 ```julia
 using ModelParameters
@@ -82,22 +80,20 @@ julia> model.val
 # What are Params?
 
 `Param` is a wrapper for your parameter value and any metadata you need to track
-about it. Essentially it's a struct that holds a `NamedTuple`. The struct simply
-marks it so we don't get mixed up with other `NamedTuple`s in a model. It
-expects to always have a `:val` field - which is the default if you don't used
-a keyword argument:
+about it. `Param` has flexible fields, but expects to always have a `:val` field
+- which is the default if you don't used a keyword argument:
 
 ```julia
 par = Param(99.0)
 @assert par.val == 99.0
 ```
 
-We use a `NamedTuple` so that using parameters is more flexible for scripting -
-if you have an idea for tracking a new thing about you model - you can just add
-it!. When paramters are built into a model, they are standardised so that they
-all have the same fields, filling the gaps with `nothing`. 
+Internally `Param` uses a `NamedTuple` so to be flexible for scripting, you can
+just add anything you need. When parameters are built into a model, they are
+standardised so that they all have the same fields, filling the gaps with
+`nothing`. 
 
-There are a few other "priveleged" fields that have specific behaviour, if you
+There are a few other "privileged" fields that have specific behaviour, if you
 use them. A `units` field will be combined with a `val` field in `paramvals`,
 and when using `simplify` on the models. The `InteractModel` may also combine
 `range`, `bounds` or fields with `units` and use them to construct sliders.
@@ -113,10 +109,17 @@ of parameters in the REPL, and give you some powerful tools for making changes
 to your model.
 
 An `InteractModel` from InteractModels.jl (also in this repository) is
-identical, these with the addition of an Interact.jl interface. Additional types
-can be added to provide more functionality over time.
+identical, with the addition of an Interact.jl interface.
 
 # Setting model values 
+
+### Setting new values
+
+You can also add new columns to all model parameters directly from the model:
+
+```julia
+model.bounds = ((1.0, 4.0), (0.0, 1.0), (0.0, 0.1), (0.0, 100.0))
+```
 
 ### Swapping number types
 
@@ -127,15 +130,9 @@ parameters. To update all model values to be `Float32`, you can simply do:
 model.val = map(Float32, model.val)
 ```
 
-### Setting new values
-
-You can also add new columns to all model parameters directly from the model:
-
-```julia
-model.bounds = ((1.0, 4.0), (0.0, 1.0), (0.0, 0.1), (0.0, 100.0))
-```
-
 # Using with Optim.jl
+
+TODO
 
 
 # Tables.jl interface
