@@ -95,7 +95,7 @@ Base.display(m::InteractModel) = display(ui(m))
 end
 
 function makesliders(model::StaticModel, throttle)
-    values = paramvals(model)
+    values = paramval(model)
     fields = model.field
     ranges = model.range
     labels = hasproperty(model, :label) ? model.label : fields

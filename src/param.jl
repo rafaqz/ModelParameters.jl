@@ -1,4 +1,3 @@
-
 """
 Abstract supertype for parameters. 
 
@@ -19,22 +18,22 @@ hasunits(p::AbstractParam) =
 
 
 """
-    val(m::AbstractParam)
-    val(NoUnits(), m::AbstractParam)
+    paramval(m::AbstractParam)
+    paramval(NoUnits(), m::AbstractParam)
 
 If there is a units field val will include the units. 
 This design is so that units don't have to be repeatedy used 
 on value and bounds, and can be in separate columns in tables.
 
 If you want `val` with no units when there is a units fiels, you
-can explicitly call `val(NoUnits(), x)`.
+can explicitly call `paramval(NoUnits(), x)`.
 """
-val(p::AbstractParam) = val(hasunits(p), p)
+paramval(p::AbstractParam) = paramval(hasunits(p), p)
+paramval(::NoUnits, p::AbstractParam) = p.val
+paramval(::WithUnits, p::AbstractParam) = paramval(WithUnits(), p.units, p)
+paramval(::WithUnits, units::Nothing, p::AbstractParam) = p.val
+paramval(::WithUnits, units, p::AbstractParam) = p.val * units
 
-val(::NoUnits, p::AbstractParam) = p.val
-val(::WithUnits, p::AbstractParam) = val(WithUnits(), p.units, p)
-val(::WithUnits, units::Nothing, p::AbstractParam) = p.val
-val(::WithUnits, units, p::AbstractParam) = p.val * units
 
 # Base NamedTuple-like interface
 Base.keys(p::AbstractParam) = keys(fields(p))
@@ -46,29 +45,16 @@ Base.getproperty(p::AbstractParam, x::Symbol) = getproperty(fields(p), x)
 Base.get(p::AbstractParam, key::Symbol, default) = get(fields(p), key, default)
 Base.getindex(p::AbstractParam, i) = getindex(fields(p), i)
 
+
 # AbstractNumber interface
 Base.convert(::Type{Number}, x::AbstractParam) = number(x)
 Base.convert(::Type{P}, x::P) where {P<:AbstractParam} = x
-AbstractNumbers.number(p::AbstractParam) = val(p)
+AbstractNumbers.number(p::AbstractParam) = paramval(p)
 AbstractNumbers.basetype(::Type{<:AbstractParam{T}}) where T = T 
 AbstractNumbers.like(::Type{<:AbstractParam}, x) = x
 
 
-
-# Methods for objects that hold params
-
-simplify(x, nm=:val) = Flatten.modify(f -> getproperty(f, nm), x, AbstractParam)
-
-params(x) = Flatten.flatten(x, AbstractParam)
-
-field(x, nm::Symbol=:value) = map(f -> getproperty(f, nm), params(x))
-field(x, i::Int) =  map(f -> f[i], params(x))
-
-checkhasparam(x) =
-    hasparam(x) || throw(ArgumentError("model has no `Param` fields"))
-
-hasparam(x) = length(params(x)) > 0
-
+# Concrete implementation
 
 """
     Param(p::NamedTuple)
@@ -92,20 +78,27 @@ end
 Param(val; kwargs...) = Param((; val=val, kwargs...))
 Param(; kwargs...) = Param((; kwargs...))
 
-"""
-    fields(p::Param)
-
-Returns a `NamedTuple` of the parameter fields.
-"""
 fields(p::Param) = getfield(p, :fields)
 
 
+
+# Methods for objects that hold params
+
+simplify(x, nm=:val) = Flatten.modify(f -> getproperty(f, nm), x, AbstractParam)
+
+params(x) = Flatten.flatten(x, AbstractParam)
+
+
+
 # Utils
+
+checkhasparam(obj) =
+    hasparam(obj) || throw(ArgumentError("model has no `Param` fields"))
+
+hasparam(obj) = length(params(obj)) > 0
 
 checkhasval(nt::NamedTuple{Keys}) where {Keys} = 
     first(Keys) == :val || _novalerror(nt)
 # @noinline avoids allocations unless there is actually an error
 @noinline _novalerror(nt) =
     throw(ArgumentError("First field of Param must be :val"))
-
-

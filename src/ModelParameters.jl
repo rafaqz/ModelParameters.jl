@@ -7,18 +7,20 @@ module ModelParameters
 end ModelParameters
 
 using AbstractNumbers,
-      ConstructionBase,
-      Flatten,
       PrettyTables, 
-      Setfield,
-      Tables
+      Setfield
+
+import Tables, 
+       Flatten,
+       ConstructionBase
       
 export AbstractModel, MutableModel, Model, StaticModel
 
 export Param, AbstractParam
 
-export params, paramvals, simplify, update, update!
+export params, paramval, simplify, update, update!
 
+include("interface.jl")
 include("param.jl")
 include("model.jl")
 include("tables.jl")

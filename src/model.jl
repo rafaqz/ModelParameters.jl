@@ -1,46 +1,30 @@
 
 """
-Abstract supertype for Model, useful if you need to extend
-the behaviour of this package.
+Abstract supertype for model wrappers like `Model`, useful 
+if you need to extend the behaviour of this package.
 
-The method required for an `AbstractModel` are `Base.parent` to 
-return the parent model object, and [`setparent!`](@ref) to update it.
 
-`AbstractModel` must be a mutable struct with an untyped field to hold
-the parent object - it is the container for immutable objects that will 
-be modified.
+# Interface
+
+`AbstractModel` uses `Base.parent` to return the parent model object. 
 """
 abstract type AbstractModel end
 
-abstract type MutableModel <: AbstractModel end
 
 Base.parent(m::AbstractModel) = getfield(m, :parent)
-setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
 
-"""
-    paramvals(m::AbstractModel)
-    paramvals(NoUnits(), m::AbstractModel)
-
-Returns the value of the parameter.
-
-If there is a units field `val` will include the units. 
-This design is so that units don't have to be repeatedy used 
-on value and bounds, and can be in separate columns in tables.
-
-If you want `val` with no units when there is a units fiels, you
-can explicitly call `paramvals(NoUnits(), x)`.
-"""
-paramvals(m::AbstractModel) = map(val, params(parent(m)))
-
-hasunits(p::AbstractModel) = 
+paramval(m::AbstractModel) = map(paramval, params(parent(m)))
 
 params(m::AbstractModel) = params(parent(m))
+
 paramfieldnames(m::AbstractModel) = Flatten.fieldnameflatten(parent(m), AbstractParam)
 paramparenttypes(m::AbstractModel) = 
     Flatten.metaflatten(parent(m), _fieldparentbasetype_meta, AbstractParam)
+
 simplify(m::AbstractModel) = simplify(parent(m))
 
 _fieldparentbasetype_meta(T, ::Type{Val{N}}) where N = T.name.wrapper
+
 
 # Tuple-like indexing and iterables interface
 
@@ -73,7 +57,30 @@ Base.keys(m::AbstractModel) = (:component, :field, keys(first(params(m)))...)
     else
         map(p -> getproperty(p, nm), params(m))
     end
-@inline Base.setproperty!(m::AbstractModel, nm::Symbol, x) = 
+
+
+Base.show(io::IO, m::AbstractModel) = begin
+    show(typeof(m)) 
+    println(io, " with parent object of type: \n")
+    show(typeof(parent(m))) 
+    println(io, "\n\nAnd parameters:")
+    pretty_table(io, m, [keys(m)...])
+end
+
+
+"""
+Abstract supertype for mutable model wrappers
+
+# Interface
+
+`MutableModel` uses `Base.parent(model)` to return the parent 
+object, and `setparent!(model, parent)` to update it. 
+""" 
+abstract type MutableModel <: AbstractModel end
+
+setparent!(m::MutableModel, newparent) = setfield!(m, :parent, newparent)
+
+@inline Base.setproperty!(m::MutableModel, nm::Symbol, x) = 
     if nm == :component
         erorr("cannot set :component property")
     elseif nm == :field
@@ -93,24 +100,26 @@ _setproperty(obj, nm::Symbol, xs::Tuple) = begin
     newparams = map(params(obj), xs) do par, x
         Param(set(fields(par), lens, x))
     end
-    reconstruct(obj, newparams, AbstractParam)
+    Flatten.reconstruct(obj, newparams, AbstractParam)
 end
 _addproperty(obj, nm::Symbol, xs::Tuple) = begin
     newparams = map(params(obj), xs) do par, x
         Param((; fields(par)..., (nm => x,)...))
     end
-    reconstruct(obj, newparams, AbstractParam)
+    Flatten.reconstruct(obj, newparams, AbstractParam)
 end
 
-
-Base.show(io::IO, m::AbstractModel) = begin
-    show(typeof(m)) 
-    println(io, " with parent object of type: \n")
-    show(typeof(parent(m))) 
-    println(io, "\n\nAnd parameters:")
-    pretty_table(io, m, [keys(m)...])
+update!(m::MutableModel, vals::AbstractVector{<:AbstractParam}) = 
+    update!(m, Tuple(vals))
+update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}}) =
+    setparent!(m, Flatten.reconstruct(parent(m), params, Param))
+update!(m::MutableModel, table) = begin
+    cols = (c for c in Tables.columnnames(table) if !(c in (:component, :field)))
+    for col in cols
+        setproperty!(m, col, Tables.getcolumn(table, col)) 
+    end
+    m
 end
-
 
 """
     Model(x)
@@ -141,28 +150,12 @@ struct NotaTable end
 
 hastable(x) = Tables.istable(x) ? IsATable() : NoaATable() 
 
-"""
-    update(model::AbstractModel, vals::Tuple)
-
-"""
-update!(m::MutableModel, vals::AbstractVector{<:AbstractParam}) = 
-    update!(m, Tuple(vals))
-update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}}) =
-    setparent!(m, reconstruct(parent(m), params, Param))
-update!(m::MutableModel, table) = begin
-    cols = (c for c in Tables.columnnames(table) if !(c in (:component, :field)))
-    for col in cols
-        setproperty!(m, col, Tables.getcolumn(table, col)) 
-    end
-    m
-end
-
 update(x, values::AbstractVector) = update(m, Tuple(vals))
 update(x, values) = begin
     newparams = map(params(x), values) do param, value
         Param(NamedTuple{keys(param)}((value, Base.tail(fields(param))...)))
     end
-    reconstruct(x, newparams)
+    Flatten.reconstruct(x, newparams)
 end
 
 """
@@ -189,6 +182,8 @@ end
 StaticModel(m::AbstractModel) = StaticModel(parent(m))
 
 update(x::StaticModel, values) = StaticModel(update(parent(m), vals))
+
+
 
 # Model Utils
 
