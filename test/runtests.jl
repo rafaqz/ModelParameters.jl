@@ -64,8 +64,8 @@ end
 
 @testset "getproperties returns column tuples of param fields" begin
     m = Model(s1);
-    @test m.component === (S1, S1, S1, S1, Tuple, Tuple, S2, S2)
-    @test m.field === (:a, :b, :c, :d, 1, 2, :h, :j)
+    @test m.component === (S1, S1, S1, S1, S1, S1, S2, S2)
+    @test m.field === (:a, :b, :c, :d, :e, :e, :h, :j)
     @test m.val === (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 99, 100.0)
     @test m.bounds == ((5.0, 15.0), (5.0, 15.0), (5.0, 15.0), nothing,
                        (5.0, 15.0), (5.0, 15.0), nothing, (50.0, 150.0))
@@ -92,8 +92,8 @@ end
     s = Tables.schema(m)
     @test keys(m) == s.names == (:component, :field, :val, :bounds)
     @test s.types == (
-        Union{DataType,UnionAll},
-        Union{Int64,Symbol},
+        UnionAll,
+        Symbol,
         Union{Float64,Int64},
         Union{Nothing,Tuple{Float64,Float64}},
     )
