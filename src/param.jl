@@ -1,10 +1,9 @@
 """
 Abstract supertype for parameters. 
 
-An `AbstractParam` must define a `fields` method that returns a namedtuple,
-and a constructor that accepts a namedtuple. It must have a `val` property, 
-and should use `checkhasval` on it's input in its constructor if it holds a 
-`NamedTuple`.
+An `AbstractParam` must define a `Base.parent` method that returns a `NamedTuple`, and a 
+constructor that accepts a namedtuple. It must have a `val` property, and should use 
+`checkhasval` on it's input in its constructor if it holds a `NamedTuple`.
 """
 abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
 
@@ -13,26 +12,23 @@ abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
 struct WithUnits end
 struct NoUnits end
 
-hasunits(p::AbstractParam) = 
-    hasfield(typeof(fields(p)), :units) ? WithUnits() : NoUnits()
+hasunits(p::AbstractParam) = hasfield(typeof(parent(p)), :units) ? WithUnits() : NoUnits()
 
 
 """
-    paramval(m::AbstractParam)
-    paramval(NoUnits(), m::AbstractParam)
+    unitfulval(m::AbstractParam)
 
-If there is a units field val will include the units. 
-This design is so that units don't have to be repeatedy used 
-on value and bounds, and can be in separate columns in tables.
-
-If you want `val` with no units when there is a units fiels, you
-can explicitly call `paramval(NoUnits(), x)`.
+If there is a units field val will include the units. This design is so that units don't 
+have to be repeatedy used on value and bounds, and can be in separate columns in tables.
 """
-paramval(p::AbstractParam) = paramval(hasunits(p), p)
-paramval(::NoUnits, p::AbstractParam) = p.val
-paramval(::WithUnits, p::AbstractParam) = paramval(WithUnits(), p.units, p)
-paramval(::WithUnits, units::Nothing, p::AbstractParam) = p.val
-paramval(::WithUnits, units, p::AbstractParam) = p.val * units
+uval(p::AbstractParam) = uval(hasunits(p), p)
+
+# Param may not have units fields
+_uval(::NoUnits, p::AbstractParam) = p.val
+_uval(::WithUnits, p::AbstractParam) = _uval(p.val, p.units)
+# Param might have `nothing` for units
+_uval(val, ::Nothing) = val
+_uval(val, units) = val * units
 
 
 # Base NamedTuple-like interface
@@ -66,7 +62,7 @@ bounding val, units priors, or anything else you want to attach.
 
 The first argument is assigned to the `val` field, and if only keyword arguments are used,
 `val`, must be one of them. `val` is used as the number val if the model us run
-without stripping out the `Param` fields. `simplify` also takes only the `:val` field.
+without stripping out the `Param` fields. `stripparams` also takes only the `:val` field.
 """
 struct Param{T,N<:NamedTuple} <: AbstractParam{T}
     fields::N
@@ -81,24 +77,18 @@ Param(; kwargs...) = Param((; kwargs...))
 fields(p::Param) = getfield(p, :fields)
 
 
-
 # Methods for objects that hold params
-
-simplify(x, nm=:val) = Flatten.modify(f -> getproperty(f, nm), x, AbstractParam)
-
 params(x) = Flatten.flatten(x, AbstractParam)
 
+stripparams(x, nm=:val) = Flatten.reconstruct(x, paramval(x), AbstractParam)
 
 
 # Utils
 
-checkhasparam(obj) =
-    hasparam(obj) || throw(ArgumentError("model has no `Param` fields"))
+checkhasparam(obj) = hasparam(obj) || throw(ArgumentError("model has no `Param` fields"))
 
 hasparam(obj) = length(params(obj)) > 0
 
-checkhasval(nt::NamedTuple{Keys}) where {Keys} = 
-    first(Keys) == :val || _novalerror(nt)
+checkhasval(nt::NamedTuple{Keys}) where {Keys} = first(Keys) == :val || _novalerror(nt)
 # @noinline avoids allocations unless there is actually an error
-@noinline _novalerror(nt) =
-    throw(ArgumentError("First field of Param must be :val"))
+@noinline _novalerror(nt) = throw(ArgumentError("First field of Param must be :val"))

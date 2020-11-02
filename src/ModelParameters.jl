@@ -17,7 +17,7 @@ export AbstractModel, MutableModel, Model, StaticModel
 
 export AbstractParam, Param
 
-export params, paramval, simplify, update, update!
+export params, stripparams, paramval, update, update!
 
 include("interface.jl")
 include("param.jl")
