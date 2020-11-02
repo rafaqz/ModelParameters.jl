@@ -7,7 +7,6 @@ defaults:
     shell: bash
 jobs:
   test:
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -31,10 +30,10 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
-
-  Skip:
-    if: "contains(github.event.head_commit.message, '[skip ci]')"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Skip CI 🚫
-        run: echo skip ci
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: true
