@@ -64,8 +64,8 @@ end
 
 @testset "getproperties returns column tuples of param fields" begin
     m = Model(s1);
-    @test m.component === (S1, S1, S1, S1, S1, S1, S2, S2)
-    @test m.field === (:a, :b, :c, :d, :e, :e, :h, :j)
+    @test m.component === (S1, S1, S1, S1, Tuple, Tuple, S2, S2)
+    @test m.field === (:a, :b, :c, :d, 1, 2, :h, :j)
     @test m.val === (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 99, 100.0)
     @test m.bounds == ((5.0, 15.0), (5.0, 15.0), (5.0, 15.0), nothing,
                        (5.0, 15.0), (5.0, 15.0), nothing, (50.0, 150.0))
@@ -92,8 +92,8 @@ end
     s = Tables.schema(m)
     @test keys(m) == s.names == (:component, :field, :val, :bounds)
     @test s.types == (
-        UnionAll,
-        Symbol,
+        Union{DataType,UnionAll},
+        Union{Int64,Symbol},
         Union{Float64,Int64},
         Union{Nothing,Tuple{Float64,Float64}},
     )
@@ -126,33 +126,3 @@ end
     # Values have units now
     @test ModelParameters.paramval(m) == (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)
 end
-
-
-# @testset "interactive model" begin
-#     color(i) = colors[i%length(colors)+1]
-#     colors = ["black", "gray", "silver", "maroon", "red", "olive", "yellow", "green", "lime", "teal", "aqua", "navy", "blue", "purple", "fuchsia"]
-#     width, height = 700, 300
-#     nsamples = 256
-#     model = (;
-#         sample_step=Param(val=0.05, range=0.01:0.001:0.1, label="Sample step"),
-#         phase=Param(val=0.0, range=0:0.1:2pi, label="Phase"),
-#         radii=Param(val=20,range=0:0.1:60, label="Radus")
-#     )
-#     interface = InteractModel(model; grouped=false) do m
-#         cxs_unscaled = [i * m.sample_step + m.phase for i in 1:nsamples]
-#         cys = sin.(cxs_unscaled) .* height/3 .+ height/2
-#         cxs = cxs_unscaled .* width/4pi
-#         dom"svg:svg[width=$width, height=$height]"(
-#         (dom"svg:circle[cx=$(cxs[i]), cy=$(cys[i]), r=$(m.radii), fill=$(color(i))]"()
-#                 for i in 1:nsamples)...
-#         )
-#     end
-#     display(interface)
-
-#     @testset "Test the tables interface and getproperty work on InteractModel too" begin
-#         df = DataFrame(interface)
-#         @test Tuple(df.val) == interface.val == (0.05, 0.0, 20)
-#         @test Tuple(df.range) == interface.range == (0.01:0.001:0.1, 0.0:0.1:6.2, 0.0:0.1:60.0)
-#         @test Tuple(df.label) == interface.label == ("Sample step", "Phase", "Radus")
-#     end
-# end
