@@ -28,9 +28,9 @@ using InteractModels, DataFrames, Interact, Test
         )
     end
 
-    ui = interface.ui
+    ui_ = ui(interface)
     # Title node matches.
-    @test first(ui.children).children == dom"h1"("slinky").children
+    @test first(ui_.children).children == dom"h1"("slinky").children
     # TODO how to test this more?
     
     # To test manually

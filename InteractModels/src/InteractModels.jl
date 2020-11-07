@@ -11,7 +11,7 @@ using Interact,
 
 @reexport using ModelParameters
 
-export InteractModel
+export InteractModel, ui
 
 include("interactive.jl")
 
