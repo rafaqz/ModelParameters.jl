@@ -52,12 +52,6 @@ jobs:
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.develop(PackageSpec(path=joinpath(pwd(), "InteractModels"))); 
             Pkg.instantiate()'
-      - run: |
-          julia --project=docs -e '
-            using Documenter: DocMeta, doctest
-            using DocumenterGitHubActions
-            DocMeta.setdocmeta!(DocumenterGitHubActions, :DocTestSetup, :(using DocumenterGitHubActions); recursive=true)
-            doctest(DocumenterGitHubActions)'
       - run: julia --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
