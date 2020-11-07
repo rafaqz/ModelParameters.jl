@@ -4,13 +4,11 @@ authors = ["Rafael Schouten <rafaelschouten@gmail.com> and contributors"]
 version = "0.1.0"
 
 [deps]
-Flatten = "4c728ea3-d9ee-5c9a-9642-b6f7d7dc04fa"
 Interact = "c601a237-2ae4-5e1e-952c-7a85b0c7eef1"
 ModelParameters = "4744a3fa-6c31-4707-899e-a3298e4618ad"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
-Flatten = "0.3"
 Interact = "0.10"
 ModelParameters = "0.1"
 Reexport = "0.2"

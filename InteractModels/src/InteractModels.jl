@@ -6,8 +6,7 @@ module InteractModels
     read(path, String)
 end InteractModels
 
-using Flatten,
-      Interact,
+using Interact,
       Reexport
 
 @reexport using ModelParameters
