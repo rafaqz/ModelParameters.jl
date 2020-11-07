@@ -40,9 +40,9 @@ using InteractModels, DataFrames, Interact, Test
 
     @testset "Test the tables interface and getproperty work on InteractModel too" begin
         df = DataFrame(interface)
-        @test Tuple(df.val) == interface[:val] == (0.05, 0.0, 20)
-        @test Tuple(df.range) == interface[:range] == (0.01:0.001:0.1, 0.0:0.1:6.2, 0.0:0.1:60.0)
-        @test Tuple(df.label) == interface[:label] == ("Sample step", "Phase", "Radus")
+        @test Tuple(df.val) == interface.val == interface[:val] == (0.05, 0.0, 20)
+        @test Tuple(df.range) == interface.range == interface[:range] == (0.01:0.001:0.1, 0.0:0.1:6.2, 0.0:0.1:60.0)
+        @test Tuple(df.label) == interface.label == interface[:label] == ("Sample step", "Phase", "Radus")
     end
 
 end
