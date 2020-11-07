@@ -30,6 +30,9 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/julia-buildpkg@latest
       - uses: julia-actions/julia-runtest@latest
+      - name: Run InteractModels tests
+        run: julia --project="InteractModels" -e "using Pkg; Pkg.develop(PackageSpec(path=\".\")); Pkg.update(); Pkg.test()"
+        shell: bash
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v1
         with:
