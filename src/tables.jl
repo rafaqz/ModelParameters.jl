@@ -5,13 +5,13 @@ Tables.istable(::AbstractModel) = true
 Tables.columnnames(m::AbstractModel) = keys(m)
 Tables.schema(m::AbstractModel) = Tables.Schema(Tables.columnnames(m), _columntypes(m))
 
-_columntypes(m) = map(k -> Union{map(typeof, getproperty(m, k))...}, keys(m)) 
+_columntypes(m) = map(k -> Union{map(typeof, getindex(m, k))...}, keys(m)) 
 
 # As Columns
 Tables.columnaccess(::Type{<:AbstractModel}) = true
 Tables.columns(m::AbstractModel) = m
-Tables.getcolumn(m::AbstractModel, nm::Symbol) = getproperty(m, nm)
-Tables.getcolumn(m::AbstractModel, i::Int) = map(p -> getindex(p, i), params(m))
+Tables.getcolumn(m::AbstractModel, nm::Symbol) = getindex(m, nm)
+Tables.getcolumn(m::AbstractModel, i::Int) = getindex(m, i)
 Tables.getcolumn(m::AbstractModel, ::Type{T}, col::Int, nm::Symbol) where T = param(m, nm)
 
 # As rows

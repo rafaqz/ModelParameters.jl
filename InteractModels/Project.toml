@@ -6,14 +6,19 @@ version = "0.1.0"
 [deps]
 Flatten = "4c728ea3-d9ee-5c9a-9642-b6f7d7dc04fa"
 Interact = "c601a237-2ae4-5e1e-952c-7a85b0c7eef1"
-InteractBase = "d3863d7c-f0c8-5437-a7b4-3ae773c01009"
 ModelParameters = "4744a3fa-6c31-4707-899e-a3298e4618ad"
-WebIO = "0f1e0344-ec1d-5b48-a673-e5cf874b6c29"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
 Flatten = "0.3"
 Interact = "0.10"
-InteractBase = "0.10"
 ModelParameters = "0.1"
-WebIO = "0.8"
+Reexport = "0.2"
 julia = "1"
+
+[extras]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["DataFrames", "Test"]

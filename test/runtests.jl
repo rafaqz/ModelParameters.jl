@@ -63,34 +63,34 @@ end
 end
 
 @testset "getproperties returns column tuples of param fields" begin
-    m = Model(s1);
-    @test m.component === (S1, S1, S1, S1, Tuple, Tuple, S2, S2)
-    @test m.field === (:a, :b, :c, :d, 1, 2, :h, :j)
-    @test m.val === (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 99, 100.0)
-    @test m.bounds == ((5.0, 15.0), (5.0, 15.0), (5.0, 15.0), nothing,
+    m = Model(s1)
+    @test m.component === m[:component] === (S1, S1, S1, S1, Tuple, Tuple, S2, S2)
+    @test m.fieldname === m[:fieldname] === (:a, :b, :c, :d, 1, 2, :h, :j)
+    @test m.val === m[:val] === (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 99, 100.0)
+    @test m.bounds === m[:bounds] === ((5.0, 15.0), (5.0, 15.0), (5.0, 15.0), nothing,
                        (5.0, 15.0), (5.0, 15.0), nothing, (50.0, 150.0))
 end
 
 @testset "setproperties updates and adds param fields" begin
     m = Model(s1)
-    m.val = m.val .* 2
-    @test m.val == (2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 198, 200.0)
+    m[:val] = m[:val] .* 2
+    @test m[:val] == (2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 198, 200.0)
     m.newfield = ntuple(x -> x, 8)
-    @test m.newfield == ntuple(x -> x, 8)
+    @test m.newfield == m[:newfield] == ntuple(x -> x, 8)
 end
 
-@testset "simpify model" begin
+@testset "strip params from model" begin
     m = Model(s1);
-    simple = simplify(m)
-    @test params(simple) == ()
-    @test simple.c == 3.0
-    @test simple.f.j == 100.0
+    stripped = stripparams(m)
+    @test params(stripped) == ()
+    @test stripped.c == 3.0
+    @test stripped.f.j == 100.0
 end
 
 @testset "Tables interface" begin
     m = Model(s1);
     s = Tables.schema(m)
-    @test keys(m) == s.names == (:component, :field, :val, :bounds)
+    @test keys(m) == s.names == (:component, :fieldname, :val, :bounds)
     @test s.types == (
         Union{DataType,UnionAll},
         Union{Int64,Symbol},
@@ -98,14 +98,14 @@ end
         Union{Nothing,Tuple{Float64,Float64}},
     )
     df = DataFrame(m)
-    @test all(df.component .== m.component)
-    @test all(df.field .== m.field)
-    @test all(df.val .== m.val)
-    @test all(df.bounds .== m.bounds)
+    @test all(df.component .== m[:component])
+    @test all(df.fieldname .== m[:fieldname])
+    @test all(df.val .== m[:val])
+    @test all(df.bounds .== m[:bounds])
 
-    df.val .*= 3
+    df[:val] .*= 3
     ModelParameters.update!(m, df)
-    @test m.val == (3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 297, 300.0)
+    @test m[:val] == (3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 297, 300.0)
 end
 
 @testset "use Unitful units, with StaticModel" begin
@@ -122,7 +122,20 @@ end
         Param(8.0),
     )
     m = StaticModel(s2)
-    @test m.units == (nothing, u"s", u"K", u"m", nothing, nothing, u"m*s^2", nothing)
+    sh = sprint(show, m)
+    @test occursin("bounds", sh)
+    @test occursin("units", sh)
+    @test occursin("m s^2", sh)
+    @test m[:units] == (nothing, u"s", u"K", u"m", nothing, nothing, u"m*s^2", nothing)
     # Values have units now
-    @test ModelParameters.paramval(m) == (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)
+    @test withunits(m) == (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)
+    @test withunits(m, :bounds) == 
+        ((5.0, 15.0), (5.0, 15.0) .* u"s", (5.0, 15.0) .* u"K", nothing, 
+         (5.0, 15.0), nothing, (50.0, 150.0) .* u"m*s^2", nothing)
+    @test stripunits(m, (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)) ==
+        (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0)
+    @test stripunits(m, ((5.0, 15.0), (5.0, 15.0) .* u"s", (5.0, 15.0) .* u"K", nothing, 
+                         (5.0, 15.0), nothing, (50.0, 150.0) .* u"m*s^2", nothing)) ==
+                        ((5.0, 15.0), (5.0, 15.0), (5.0, 15.0), nothing, 
+                         (5.0, 15.0), nothing, (50.0, 150.0), nothing)
 end

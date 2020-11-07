@@ -12,7 +12,8 @@ makedocs(;
         assets=String[],
     ),
     pages=[
-        "Home" => "index.md",
+        "ModelParameters" => "index.md",
+        "InteractModels" => "interactmodels.md",
     ],
 )
 

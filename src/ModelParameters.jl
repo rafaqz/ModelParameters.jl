@@ -10,14 +10,15 @@ import AbstractNumbers,
        ConstructionBase,
        Flatten,
        PrettyTables, 
-       Setfield,
        Tables 
+
+using Setfield
       
 export AbstractModel, MutableModel, Model, StaticModel
 
 export AbstractParam, Param
 
-export params, stripparams, paramval, update, update!
+export params, printparams, stripparams, update, update!, withunits, stripunits
 
 include("interface.jl")
 include("param.jl")

@@ -3,78 +3,91 @@
 Abstract supertype for model wrappers like `Model`, useful
 if you need to extend the behaviour of this package.
 
-# Accessing AbstactModel parameters
 
-Fields can be accessed with `getproperty` or `getindex`:
+# Accessing `AbstactModel` parameters
 
-```julian
+Fields can be accessed with `getindex`:
+
+```julia
 model = Model(obj)
-@assert model.val isa Tuple
-@assert model.val == model[:val]
-@assert model.units == model[:units]
+@assert model[:val] isa Tuple
+@assert model[:val] == model[:val]
+@assert model[:units] == model[:units]
 ```
 
-To get a combined Tuple of `val` and `units`, use [`uval`](@ref).
+To get a combined Tuple of `val` and `units`, use [`withunits`](@ref).
 
 The type name of the parent model component, and the field name are also available:
 
 ```julia
-model.component
-model.field
+model[:component]
+model[:fieldname]
 ```
 
 
-# Converting to a `Vector` of parameter values
+## Getting a `Vector` of parameter values
 
-`Base` methods `collect`, `vec`, and `Array`, return a vector of the result of 
-[`uval`](@ref).
-
-To get a vector of other parameter fields, simply `collect` the tuple:
+`Base` methods `collect`, `vec`, and `Array` return a vector of the result of 
+`model[:val]`. To get a vector of other parameter fields, simply `collect` the tuple:
 
 ```julian
-boundsvec = collect(model.bounds)
+boundsvec = collect(model[:bounds])
 ```
+
 
 ## Tables.jl interface
 
-Tables.rows will return all Params as a `Vector` of `NamedTuple`.
+All `AbstractModel`s define the Tables.jl interface. This means their paremeters
+and parameter metadata can be converted to a `DataFrame` or CSV very easily:
+
+```julia
+df = DataFrame(model)
+```
+
+Tables.rows will also return all `Param`s as a `Vector` of `NamedTuple`.
+
+To update a model with params from a table, use `update!` or `update`:
+
+```julia
+update!(model, table)
+```
 
 
 ## `AbstractModel` Interface: Defining your own model wrappers
 
-It may be simplest to use `ModelParameters` on a wrapper type you also use
-for other things. It very straightforward to extend the interface. Nearly
-everything is taken care of by inheriting from `AbstractModel`.
-
-In some circumstances you will need to define additional methods.
+It may be simplest to use `ModelParameters.jl` on a wrapper type you also use for other 
+things. This is what DynamicGrids.jl does with `Ruleset`. It's straightforward to extend 
+the interface, nearly everything is taken care of by inheriting from `AbstractModel`. But 
+in some circumstances you will need to define additional methods.
 
 `AbstractModel` uses `Base.parent` to return the parent model object.
-Either use a field :parent on your `<: AbstractModel` type, or add a 
+Either use a field `:parent` on your `<: AbstractModel` type, or add a 
 method to `Base.parent`. 
 
 With a custom `parent` field you will also need to define a method for 
-[`update`](@ref).
+[`setparent!`](@ref) and [`setparent`](@ref) that sets the correct field.
 
-Complex type parameters may reuire a method of `ConstructionBase.constructorof`.
+An `AbstractModel` with complicated type parameters may require a method of 
+`ConstructionBase.constructorof`.
 
-To add custom `show` methods but still print the parameter table, you can use
+To add custom `show` methods but still print the parameter table, you can use:
 
 ```julia
 printparams(io::IO, model)
 ```
 
-Thats should be all you need to do.
+That should be all you need to do.
 """
 abstract type AbstractModel end
 
 Base.parent(m::AbstractModel) = getfield(m, :parent)
+setparent(m::AbstractModel, newparent) = @set m.parent = newparent
 
-uval(m) = map(uval, params(m))
 params(m::AbstractModel) = params(parent(m))
 stripparams(m::AbstractModel) = stripparams(parent(m))
 function update(x::T, values) where {T<:AbstractModel} 
     hasfield(T, :parent) || _updatenotdefined(T)
-    T(update(parent(m), vals))
+    setparent(m, update(parent(m), vals))
 end
 
 @noinline _update_methoderror(T) = error("Interface method `update` is not defined for $T")
@@ -100,26 +113,24 @@ Base.iterate(m::AbstractModel) = (first(params(m)), 1)
 Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (params(m)[s], s + 1)
 
 # Vector methods
-Base.collect(m::AbstractModel) = collect(uval(m))
+Base.collect(m::AbstractModel) = collect(m.val)
 Base.vec(m::AbstractModel) = collect(m)
 Base.Array(m::AbstractModel) = vec(m)
 
 # Dict methods - data as columns
 Base.haskey(m::AbstractModel, key::Symbol) = key in keys(m)
-Base.hasproperty(m::AbstractModel, key::Symbol) = haskey(m, key)
 Base.keys(m::AbstractModel) = _keys(params(m), m)
 
-_keys(params::Tuple, m::AbstractModel) = (:component, :field, keys(first(params))...)
+_keys(params::Tuple, m::AbstractModel) = (:component, :fieldname, keys(first(params))...)
 _keys(params::Tuple{}, m::AbstractModel) = ()
 
-@inline Base.getindex(m::AbstractModel, nm::Symbol) = getproperty(m, nm)
-@inline function Base.getproperty(m::AbstractModel, nm::Symbol)
+@inline function Base.getindex(m::AbstractModel, nm::Symbol)
     if nm == :component
         paramparenttypes(m)
-    elseif nm == :field
+    elseif nm == :fieldname
         paramfieldnames(m)
     else
-        map(p -> getproperty(p, nm), params(m))
+        map(p -> getindex(p, nm), params(m))
     end
 end
 
@@ -128,24 +139,26 @@ function Base.show(io::IO, m::AbstractModel)
     println(io, " with parent object of type: \n")
     show(typeof(parent(m)))
     println(io, "\n\n")
-    _printparams(io::IO, m)
+    printparams(io::IO, m)
 end
 
 printparams(m) = printparams(stdout, m)
-printparams(io::IO, m) = printparams(io::IO, params(m))
-function printparams(io::IO, m::Tuple)
-    println(io, "Parameters:")
-    PrettyTables.pretty_table(io, m, [keys(m)...])
+function printparams(io::IO, m::AbstractModel)
+    if length(m) > 0
+        println(io, "Parameters:")
+        PrettyTables.pretty_table(io, m, [keys(m)...])
+    end
 end
 
 
 """
-Abstract supertype for mutable model wrappers
+Abstract supertype for mutable model wrappers, like `Model` and `InteractModel`.
 
 # Interface
 
-`MutableModel` uses `Base.parent(model)` to return the parent
-object, and `setparent!(model, parent)` to update it.
+As for [`AbstractModel`](@ref). `MutableModel` also uses `setparent!(model, parent)` 
+to update the parent object. These methods must be defined if the parent object is not 
+stored in the `:parent` field.
 """
 abstract type MutableModel <: AbstractModel end
 
@@ -156,40 +169,39 @@ function update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}})
     setparent!(m, Flatten.reconstruct(parent(m), params, Param))
 end
 function update!(m::MutableModel, table)
-    cols = (c for c in Tables.columnnames(table) if !(c in (:component, :field)))
+    cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
     for col in cols
-        setproperty!(m, col, Tables.getcolumn(table, col))
+        setindex!(m, Tables.getcolumn(table, col), col)
     end
     m
 end
 
-@inline Base.setindex!(m::MutableModel, x, nm::Symbol) = setproperty!(m, nm, x)
-@inline function Base.setproperty!(m::MutableModel, nm::Symbol, x)
+@inline function Base.setindex!(m::MutableModel, x, nm::Symbol)
     if nm == :component
-        erorr("cannot set :component property")
-    elseif nm == :field
-        erorr("cannot set :field property")
+        erorr("cannot set :component index")
+    elseif nm == :fieldname
+        erorr("cannot set :fieldname index")
     else
         newparent = if nm in keys(m)
-            _setproperty(parent(m), nm, Tuple(x))
-        else
-            _addproperty(parent(m), nm, Tuple(x))
+            _setindex(parent(m), Tuple(x), nm)
+        else                                 
+            _addindex(parent(m), Tuple(x), nm)
         end
         setparent!(m, newparent)
     end
 end
 
 # TODO do this with lenses
-@inline function _setproperty(obj, nm::Symbol, xs::Tuple)
+@inline function _setindex(obj, xs::Tuple, nm::Symbol)
     lens = Setfield.PropertyLens{nm}()
     newparams = map(params(obj), xs) do par, x
-        Param(Setfield.set(fields(par), lens, x))
+        Param(Setfield.set(parent(par), lens, x))
     end
     Flatten.reconstruct(obj, newparams, AbstractParam)
 end
-@inline function _addproperty(obj, nm::Symbol, xs::Tuple)
+@inline function _addindex(obj, xs::Tuple, nm::Symbol)
     newparams = map(params(obj), xs) do par, x
-        Param((; fields(par)..., (nm => x,)...))
+        Param((; parent(par)..., (nm => x,)...))
     end
     Flatten.reconstruct(obj, newparams, AbstractParam)
 end
@@ -197,13 +209,13 @@ end
 """
     Model(x)
 
-A wrapper type for any model containing [`Param`](@ref) parameters -
-essentially marking that a custom struct or Tuple holds `Param` fields.
+A wrapper type for any model containing [`Param`](@ref) parameters - essentially marking 
+that a custom struct or Tuple holds `Param` fields.
 
-This allows you to index into the model as if it is a linear list of parameters,
-or named columns of values and paramiter metadata. You can treat it as an iterable,
-or use the Tables.jl interface to save or update the model to/from csv, a `DataFrame`
-or any source that implements the Tables.jl interface.
+This allows you to index into the model as if it is a linear list of parameters, or named 
+columns of values and paramiter metadata. You can treat it as an iterable, or use the 
+Tables.jl interface to save or update the model to/from csv, a `DataFrame` or any source 
+that implements the Tables.jl interface.
 """
 mutable struct Model <: MutableModel
     parent
@@ -221,13 +233,13 @@ mutable struct Model <: MutableModel
 end
 Model(m::AbstractModel) = Model(parent(m))
 
-_noparamwarning() = @warn "Model has no Param fields"
-
+Base.getproperty(m::Model, key::Symbol) = getindex(m, key::Symbol)
+Base.setproperty!(m::Model, key::Symbol, x) = setindex!(m, x, key::Symbol)
 
 update(x, values::AbstractVector) = update(m, Tuple(vals))
 function update(x, values)
     newparams = map(params(x), values) do param, value
-        Param(NamedTuple{keys(param)}((value, Base.tail(fields(param))...)))
+        Param(NamedTuple{keys(param)}((value, Base.tail(parent(param))...)))
     end
     Flatten.reconstruct(x, newparams)
 end
@@ -254,6 +266,8 @@ struct StaticModel{P} <: AbstractModel
 end
 StaticModel(m::AbstractModel) = StaticModel(parent(m))
 
+Base.getproperty(m::StaticModel, key::Symbol) = getindex(m, key::Symbol)
+Base.setproperty!(m::StaticModel, key::Symbol, x) = setindex!(m, x, key::Symbol)
 
 # Model Utils
 
@@ -270,3 +284,5 @@ function _expandkeys(x)
         Param(NamedTuple{allkeys}(vals))
     end
 end
+
+_noparamwarning() = @warn "Model has no Param fields"

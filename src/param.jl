@@ -1,52 +1,48 @@
 """
-Abstract supertype for parameters. 
+Abstract supertype for parameters. Theses are wrappers for model parameter values and 
+metadata that are returned from [`params`](@ref), and used in 
+`getfield/setfield/getpropery/setproperty` methods and to generate the Tables.jl interface. 
+They are stripped from the model with [`stripparams`](@ref).
 
-An `AbstractParam` must define a `Base.parent` method that returns a `NamedTuple`, and a 
-constructor that accepts a namedtuple. It must have a `val` property, and should use 
-`checkhasval` on it's input in its constructor if it holds a `NamedTuple`.
+An `AbstractParam` must define a `Base.parent` method that returns a `NamedTuple`, and a
+constructor that accepts a `NamedTuple`. It must have a `val` property, and should use
+`checkhasval` in its constructor.
 """
 abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
+@inline withunits(m, args...) = map(p -> withunits(p, args...), params(m))
+@inline function withunits(p::AbstractParam, fn::Symbol=:val)
+    _applyunits(*, getproperty(p, fn), get(p, :units, nothing))
+end
 
+@inline stripunits(m, xs) = map(stripunits, params(m), xs)
+@inline function stripunits(p::AbstractParam, x)
+    _applyunits(/, x, get(p, :units, nothing))
+end
 
-# units field special-casing trait
-struct WithUnits end
-struct NoUnits end
-
-hasunits(p::AbstractParam) = hasfield(typeof(parent(p)), :units) ? WithUnits() : NoUnits()
-
-
-"""
-    unitfulval(m::AbstractParam)
-
-If there is a units field val will include the units. This design is so that units don't 
-have to be repeatedy used on value and bounds, and can be in separate columns in tables.
-"""
-uval(p::AbstractParam) = uval(hasunits(p), p)
-
-# Param may not have units fields
-_uval(::NoUnits, p::AbstractParam) = p.val
-_uval(::WithUnits, p::AbstractParam) = _uval(p.val, p.units)
 # Param might have `nothing` for units
-_uval(val, ::Nothing) = val
-_uval(val, units) = val * units
-
+@inline _applyunits(f, x, units) = f(x, units)
+@inline _applyunits(f, x, ::Nothing) = x
+@inline _applyunits(f, xs::Tuple, units) = map(x -> f(x, units), xs)
+@inline _applyunits(f, xs::Tuple, units::Nothing) = xs
+@inline _applyunits(f, ::Nothing, units) = nothing
+@inline _applyunits(f, ::Nothing, ::Nothing) = nothing
 
 # Base NamedTuple-like interface
-Base.keys(p::AbstractParam) = keys(fields(p))
-# Base.values has the potential to be confusing, as we 
+Base.keys(p::AbstractParam) = keys(parent(p))
+# Base.values has the potential to be confusing, as we
 # have a val field in Param.  Not sure what to do about this.
-Base.values(p::AbstractParam) = values(fields(p))
-Base.propertynames(p::AbstractParam) = propertynames(fields(p))
-Base.getproperty(p::AbstractParam, x::Symbol) = getproperty(fields(p), x)
-Base.get(p::AbstractParam, key::Symbol, default) = get(fields(p), key, default)
-Base.getindex(p::AbstractParam, i) = getindex(fields(p), i)
+Base.values(p::AbstractParam) = values(parent(p))
+@inline Base.propertynames(p::AbstractParam) = propertynames(parent(p))
+@inline Base.getproperty(p::AbstractParam, x::Symbol) = getproperty(parent(p), x)
+@inline Base.get(p::AbstractParam, key::Symbol, default) = get(parent(p), key, default)
+@inline Base.getindex(p::AbstractParam, i) = getindex(parent(p), i)
 
 
 # AbstractNumber interface
 Base.convert(::Type{Number}, x::AbstractParam) = number(x)
 Base.convert(::Type{P}, x::P) where {P<:AbstractParam} = x
-AbstractNumbers.number(p::AbstractParam) = paramval(p)
-AbstractNumbers.basetype(::Type{<:AbstractParam{T}}) where T = T 
+AbstractNumbers.number(p::AbstractParam) = withunits(p)
+AbstractNumbers.basetype(::Type{<:AbstractParam{T}}) where T = T
 AbstractNumbers.like(::Type{<:AbstractParam}, x) = x
 
 
@@ -64,31 +60,26 @@ The first argument is assigned to the `val` field, and if only keyword arguments
 `val`, must be one of them. `val` is used as the number val if the model us run
 without stripping out the `Param` fields. `stripparams` also takes only the `:val` field.
 """
-struct Param{T,N<:NamedTuple} <: AbstractParam{T}
-    fields::N
+struct Param{T,P<:NamedTuple} <: AbstractParam{T}
+    parent::P
 end
-Param(nt::N) where {N<:NamedTuple} = begin
-    checkhasval(nt)
-    Param{typeof(nt.val),N}(nt)
+Param(nt::NT) where {NT<:NamedTuple} = begin
+    _checkhasval(nt)
+    Param{typeof(nt.val),NT}(nt)
 end
 Param(val; kwargs...) = Param((; val=val, kwargs...))
 Param(; kwargs...) = Param((; kwargs...))
 
-fields(p::Param) = getfield(p, :fields)
-
+Base.parent(p::Param) = getfield(p, :parent)
 
 # Methods for objects that hold params
 params(x) = Flatten.flatten(x, AbstractParam)
-
-stripparams(x, nm=:val) = Flatten.reconstruct(x, paramval(x), AbstractParam)
+stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), AbstractParam) : x
 
 
 # Utils
-
-checkhasparam(obj) = hasparam(obj) || throw(ArgumentError("model has no `Param` fields"))
-
 hasparam(obj) = length(params(obj)) > 0
 
-checkhasval(nt::NamedTuple{Keys}) where {Keys} = first(Keys) == :val || _novalerror(nt)
+_checkhasval(nt::NamedTuple{Keys}) where {Keys} = first(Keys) == :val || _novalerror(nt)
 # @noinline avoids allocations unless there is actually an error
 @noinline _novalerror(nt) = throw(ArgumentError("First field of Param must be :val"))
