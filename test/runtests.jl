@@ -125,7 +125,6 @@ end
     sh = sprint(show, m)
     @test occursin("bounds", sh)
     @test occursin("units", sh)
-    @test occursin("m s^2", sh)
     @test m[:units] == (nothing, u"s", u"K", u"m", nothing, nothing, u"m*s^2", nothing)
     # Values have units now
     @test withunits(m) == (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)
