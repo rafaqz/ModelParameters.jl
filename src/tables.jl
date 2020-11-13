@@ -10,9 +10,10 @@ _columntypes(m) = map(k -> Union{map(typeof, getindex(m, k))...}, keys(m))
 # As Columns
 Tables.columnaccess(::Type{<:AbstractModel}) = true
 Tables.columns(m::AbstractModel) = m
-Tables.getcolumn(m::AbstractModel, nm::Symbol) = getindex(m, nm)
-Tables.getcolumn(m::AbstractModel, i::Int) = getindex(m, i)
-Tables.getcolumn(m::AbstractModel, ::Type{T}, col::Int, nm::Symbol) where T = param(m, nm)
+Tables.getcolumn(m::AbstractModel, nm::Symbol) = collect(getindex(m, nm))
+Tables.getcolumn(m::AbstractModel, i::Int) = collect(getindex(m, i))
+Tables.getcolumn(m::AbstractModel, ::Type{T}, col::Int, nm::Symbol) where T = 
+    collect(getindex(m, nm))
 
 # As rows
 Tables.rowaccess(::Type{<:AbstractModel}) = true
