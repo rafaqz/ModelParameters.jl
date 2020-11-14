@@ -10,9 +10,9 @@ using InteractModels, DataFrames, Interact, Test
     width, height = 700, 300
     nsamples = 256
     params = (;
-        sample_step=Param(val=0.05, range=0.01:0.001:0.1, label="Sample step"),
-        phase=Param(val=0.0, range=0:0.1:2pi, label="Phase"),
-        radii=Param(val=20,range=0:0.1:60, label="Radus")
+        sample_step=Param(val=0.05, range=0.01:0.001:0.1, label="Sample step", description="The step size between samples"),
+        phase=Param(val=0.0, range=0:0.1:2pi, label="Phase", description="Phase of the starting point"),
+        radii=Param(val=20,range=0:0.1:60, label="Radus", description="Radius of the circles")
     )
 
     interface = InteractModel(params; grouped=false, title="slinky") do m

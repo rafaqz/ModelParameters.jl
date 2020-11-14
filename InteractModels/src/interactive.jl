@@ -181,10 +181,11 @@ function param_sliders(model::AbstractModel; throttle=0.1)
 
     # Set mouse hover text
     attributes = map(model[:component], fields, descriptions) do p, n, d
-        Dict(:title => "$p.$n: $d")
+        desc = d == "" ? "" : string(": ", d)
+        Dict(:title => "$p.$n $desc")
     end
 
-    sliders = map(values, fields, ranges, attributes) do v, l, r, a
+    sliders = map(values, labels, ranges, attributes) do v, l, r, a
         slider(r; label=string(l), value=v, attributes=a)
     end
     # `map` combining Observables is a little odd, *all* sliders here are splatted to `s`
