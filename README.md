@@ -16,7 +16,7 @@ tuple or table using a single command, rebuilding the object with the new values
 
 ## Use case
 
-ModelParameters.jl is designed to help writing, physics/environmental/ecological
+ModelParameters.jl is designed to help writing physics/environmental/ecological
 models with heterogeneous structure and multiple formulation options. 
 
 Once these models grow beyond a certain complexity it becomes preferable to
