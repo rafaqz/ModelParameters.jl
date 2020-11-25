@@ -134,7 +134,7 @@ _keys(params::Tuple{}, m::AbstractModel) = ()
     end
 end
 
-function Base.show(io::IO, m::AbstractModel)
+function Base.show(io::IO, ::MIME"text/plain", m::AbstractModel)
     show(typeof(m))
     println(io, " with parent object of type: \n")
     show(typeof(parent(m)))
