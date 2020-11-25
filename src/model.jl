@@ -92,8 +92,8 @@ end
 
 @noinline _update_methoderror(T) = error("Interface method `update` is not defined for $T")
 
-paramfieldnames(m) = Flatten.fieldnameflatten(parent(m), AbstractParam)
-paramparenttypes(m) = Flatten.metaflatten(parent(m), _fieldparentbasetype, AbstractParam)
+paramfieldnames(m) = Flatten.fieldnameflatten(parent(m), SELECT, IGNORE)
+paramparenttypes(m) = Flatten.metaflatten(parent(m), _fieldparentbasetype, SELECT, IGNORE)
 
 _fieldparentbasetype(T, ::Type{Val{N}}) where N = T.name.wrapper
 
@@ -166,7 +166,7 @@ setparent!(m::MutableModel, newparent) = setfield!(m, :parent, newparent)
 
 update!(m::MutableModel, vals::AbstractVector{<:AbstractParam}) = update!(m, Tuple(vals))
 function update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}})
-    setparent!(m, Flatten.reconstruct(parent(m), params, Param))
+    setparent!(m, Flatten.reconstruct(parent(m), params, SELECT, IGNORE))
 end
 function update!(m::MutableModel, table)
     cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
@@ -197,13 +197,13 @@ end
     newparams = map(params(obj), xs) do par, x
         Param(Setfield.set(parent(par), lens, x))
     end
-    Flatten.reconstruct(obj, newparams, AbstractParam)
+    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
 end
 @inline function _addindex(obj, xs::Tuple, nm::Symbol)
     newparams = map(params(obj), xs) do par, x
         Param((; parent(par)..., (nm => x,)...))
     end
-    Flatten.reconstruct(obj, newparams, AbstractParam)
+    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
 end
 
 """
@@ -224,7 +224,7 @@ mutable struct Model <: MutableModel
         if hasparam(parent)
             # Make sure all params have all the same keys.
             expandedpars = _expandkeys(params(parent))
-            parent = Flatten.reconstruct(parent, expandedpars, AbstractParam)
+            parent = Flatten.reconstruct(parent, expandedpars, SELECT, IGNORE)
         else
             _noparamwarning()
         end
@@ -241,7 +241,7 @@ function update(x, values)
     newparams = map(params(x), values) do param, value
         Param(NamedTuple{keys(param)}((value, Base.tail(parent(param))...)))
     end
-    Flatten.reconstruct(x, newparams)
+    Flatten.reconstruct(x, newparams, SELECT, IGNORE)
 end
 
 """
@@ -256,7 +256,7 @@ struct StaticModel{P} <: AbstractModel
         # Need at least 1 AbstractParam field to be a Model
         if hasparam(parent)
             expandedpars = _expandkeys(params(parent))
-            parent = Flatten.reconstruct(parent, expandedpars, AbstractParam)
+            parent = Flatten.reconstruct(parent, expandedpars, SELECT, IGNORE)
         else
             _noparamwarning()
         end
@@ -271,7 +271,7 @@ Base.setproperty!(m::StaticModel, key::Symbol, x) = setindex!(m, x, key::Symbol)
 
 # Model Utils
 
-_expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), AbstractParam)
+_expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), SELECT, IGNORE)
 # Expand all Params to have the same keys, filling with `nothing`
 # This probably will allocate due to `union` returning `Vector`
 function _expandkeys(x)

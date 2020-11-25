@@ -9,6 +9,7 @@ constructor that accepts a `NamedTuple`. It must have a `val` property, and shou
 `checkhasval` in its constructor.
 """
 abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
+
 @inline withunits(m, args...) = map(p -> withunits(p, args...), params(m))
 @inline function withunits(p::AbstractParam, fn::Symbol=:val)
     _applyunits(*, getproperty(p, fn), get(p, :units, nothing))
@@ -45,6 +46,9 @@ AbstractNumbers.number(p::AbstractParam) = withunits(p)
 AbstractNumbers.basetype(::Type{<:AbstractParam{T}}) where T = T
 AbstractNumbers.like(::Type{<:AbstractParam}, x) = x
 
+# Flatten.jl defaults defined here: AbstractParam needs to be defined first
+const SELECT = AbstractParam
+const IGNORE = AbstractArray
 
 # Concrete implementation
 
@@ -73,8 +77,8 @@ Param(; kwargs...) = Param((; kwargs...))
 Base.parent(p::Param) = getfield(p, :parent)
 
 # Methods for objects that hold params
-params(x) = Flatten.flatten(x, AbstractParam)
-stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), AbstractParam) : x
+params(x) = Flatten.flatten(x, SELECT, IGNORE)
+stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), SELECT, IGNORE) : x
 
 
 # Utils
