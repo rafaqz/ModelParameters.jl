@@ -9,13 +9,13 @@ using InteractModels, DataFrames, Interact, Test
     ]
     width, height = 700, 300
     nsamples = 256
-    params = (;
+    pars = (;
         sample_step=Param(val=0.05, range=0.01:0.001:0.1, label="Sample step", description="The step size between samples"),
         phase=Param(val=0.0, range=0:0.1:2pi, label="Phase", description="Phase of the starting point"),
         radii=Param(val=20,range=0:0.1:60, label="Radus", description="Radius of the circles")
     )
 
-    interface = InteractModel(params; grouped=false, title="slinky") do m
+    interface = InteractModel(pars; grouped=false, title="slinky") do m
         m = stripparams(m)
         println(m)
         cxs_unscaled = [i * m.sample_step + m.phase for i in 1:nsamples]

@@ -98,12 +98,12 @@ end
         Union{Nothing,Tuple{Float64,Float64}},
     )
     df = DataFrame(m)
-    @test all(df.component .== m[:component])
-    @test all(df.fieldname .== m[:fieldname])
-    @test all(df.val .== m[:val])
-    @test all(df.bounds .== m[:bounds])
+    @test all(df.component .== m.component)
+    @test all(df.fieldname .== m.fieldname)
+    @test all(df.val .== m.val)
+    @test all(df.bounds .== m.bounds)
 
-    df[:val] .*= 3
+    df.val .*= 3
     ModelParameters.update!(m, df)
     @test m[:val] == (3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 297, 300.0)
 end

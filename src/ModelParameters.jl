@@ -14,7 +14,7 @@ import AbstractNumbers,
 
 using Setfield
       
-export AbstractModel, MutableModel, Model, StaticModel
+export AbstractModel, Model, StaticModel
 
 export AbstractParam, Param
 

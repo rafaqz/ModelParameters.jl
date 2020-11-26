@@ -63,7 +63,7 @@ ui = InteractModel(model; grouped=false, throttle=0.1) do m
 end
 ```
 """
-mutable struct InteractModel{F,L,Ti,Th} <: MutableModel
+mutable struct InteractModel{F,L,Ti,Th} <: AbstractModel
     f::F
     parent::Any
     grouped::Bool
@@ -105,8 +105,8 @@ end
 
 
 """
-    attach_sliders!(f, model::MutableModel; grouped=false, throttle=0.1)
-    attach_sliders!(model::MutableModel; grouped=false, throttle=0.1, f=identity)
+    attach_sliders!(f, model::AbstractModel; grouped=false, throttle=0.1)
+    attach_sliders!(model::AbstractModel; grouped=false, throttle=0.1, f=identity)
 
 Internal method that may be useful for creating custom interfaces like `InteractModel`,
 without actually using `InteracModel` directly. This interface will be less stable than
@@ -118,7 +118,7 @@ Create sliders and attach them to the model so it will be updated when they are 
 
 - `f`: a function that accepts the model, stripped of `Param` wrappers, with a return value
   that sets the observable `obs`. Usually this converts it to a plot or other web output.
-- `model`: a [`MutableModel`](@ref)
+- `model`: a [`AbstractModel`](@ref)
 
 ## Keyword Arguments
 - `throttle`: `0.1` - sliders response time, in seconds.
