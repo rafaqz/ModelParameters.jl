@@ -34,9 +34,9 @@ using InteractModels, DataFrames, Interact, Test
     # TODO how to test this more?
     
     # To test manually
-    using Blink
-    w = Blink.Window()
-    body!(w, interface)
+    # using Blink
+    # w = Blink.Window()
+    # body!(w, interface)
 
     @testset "Test the tables interface and getproperty work on InteractModel too" begin
         df = DataFrame(interface)
