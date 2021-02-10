@@ -167,7 +167,7 @@ function param_sliders(model::AbstractModel; throttle=0.1)
     elseif haskey(model, :bounds)
         _makerange.(withunits(model, :bounds), values)
     else
-        error("Params must include a `range` or `bounds` field to generate interactive sliders")
+        _makerange.(Ref(nothing), values)
     end
 
     @show ranges
@@ -220,11 +220,22 @@ function _makerange(bounds::Tuple, val::T) where T
     step = (b2 - b1) / SLIDER_STEPS
     return b1:step:b2
 end
+function _makerange(bounds::Tuple, val::T) where T<:Integer
+    b1, b2 = map(T, bounds)
+    return b1:b2
+end
 function _makerange(bounds::Nothing, val)
-    if val == zero(val)
+    return if val == zero(val)
         LinRange(-oneunit(val), onunit(val), SLIDER_STEPS)
     else
         LinRange(zero(val), 2 * val, SLIDER_STEPS)
+    end
+end
+function _makerange(bounds::Nothing, val::Int)
+    return if val == zero(val) 
+        -oneunit(val):onunit(val)
+    else 
+        zero(val):2val
     end
 end
 _makerange(bounds, val) = error("Can't make a range from Param bounds of $val")
