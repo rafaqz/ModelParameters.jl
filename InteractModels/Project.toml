@@ -1,7 +1,7 @@
 name = "InteractModels"
 uuid = "546b680c-e627-4c75-86f8-7ef2c81e5d51"
 authors = ["Rafael Schouten <rafaelschouten@gmail.com> and contributors"]
-version = "0.3.0"
+version = "0.3.1"
 
 [deps]
 Interact = "c601a237-2ae4-5e1e-952c-7a85b0c7eef1"
