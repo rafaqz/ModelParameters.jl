@@ -87,7 +87,7 @@ params(m::AbstractModel) = params(parent(m))
 stripparams(m::AbstractModel) = stripparams(parent(m))
 function update(x::T, values) where {T<:AbstractModel} 
     hasfield(T, :parent) || _updatenotdefined(T)
-    setparent(m, update(parent(m), vals))
+    setparent(x, update(parent(x), values))
 end
 
 @noinline _update_methoderror(T) = error("Interface method `update` is not defined for $T")
