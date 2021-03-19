@@ -1,3 +1,6 @@
+const SLIDER_STEPS = 500
+const MAX_COLUMNS = 3
+
 """
     InteractModel(f, model)
 
@@ -72,7 +75,8 @@ mutable struct InteractModel{F,L,Ti,Th} <: AbstractModel
     throttle::Th
     ui::Any
     function InteractModel(
-        f::F, parent; layout::L=vbox, grouped::Bool=true, title::Ti="", throttle::Th=0.1
+        f::F, parent; layout::L=vbox, ncolumns=nothing, grouped::Bool=true, 
+        title::Ti="", throttle::Th=0.1
     ) where {F,L,Ti,Th}
         # Partially construct model
         model = new{F,L,Ti,Th}(f, parent, grouped, layout, title, throttle, undef)
@@ -82,7 +86,7 @@ mutable struct InteractModel{F,L,Ti,Th} <: AbstractModel
 
         # Generate sliders and update the model and output when they change
         sliders = attach_sliders!(f, model;
-            grouped=grouped, throttle=throttle, obs=output
+            ncolumns=ncolumns, grouped=grouped, throttle=throttle, obs=output
         )
 
         # Define the complete user interface
@@ -131,7 +135,7 @@ function attach_sliders!(f, model::AbstractModel; kwargs...)
     attach_sliders!(model; kwargs..., f=f)
 end
 function attach_sliders!(model::AbstractModel;
-    grouped=false, throttle=0.1, obs=nothing, f=identity
+    ncolumns=nothing, grouped=false, throttle=0.1, obs=nothing, f=identity
 )
     # Generte observable sliders
     sliders, slider_obs = param_sliders(model; throttle=throttle)
@@ -151,12 +155,24 @@ function attach_sliders!(model::AbstractModel;
 
     sliderbox = if grouped
         slider_groups = group_sliders(model, sliders)
-        vbox(slider_groups...)
+        objpercol = 2
+        _in_columns(slider_groups, ncolumns, objpercol)
     else
-        vbox(sliders...)
+        objpercol = 3
+        _in_columns(sliders, ncolumns, objpercol)
     end
 
     return sliderbox
+end
+
+function _in_columns(objects, ncolumns, objpercol)
+    nobjects = length(objects)
+    if ncolumns isa Nothing
+        ncolumns = min(MAX_COLUMNS, (length(objects) - 1) ÷ objpercol + 1)
+    end
+    npercol = (nobjects - 1) ÷ ncolumns + 1
+    cols = collect(objects[(npercol * (i - 1) + 1):min(nobjects, npercol * i)] for i in 1:ncolumns)
+    hbox(map(col -> vbox(col...), cols)...)
 end
 
 function param_sliders(model::AbstractModel; throttle=0.1)
@@ -169,8 +185,6 @@ function param_sliders(model::AbstractModel; throttle=0.1)
     else
         _makerange.(Ref(nothing), values)
     end
-
-    @show ranges
 
     labels = haskey(model, :label) ? model[:label] : fields
     descriptions = if haskey(model, :description)
@@ -212,8 +226,6 @@ function group_sliders(model::AbstractModel, sliders)
     push!(slider_groups, dom"h2"(group_items...))
     return slider_groups
 end
-
-const SLIDER_STEPS = 500
 
 function _makerange(bounds::Tuple, val::T) where T
     b1, b2 = map(T, bounds)

@@ -15,7 +15,7 @@ using InteractModels, DataFrames, Interact, Test
         radii=Param(val=20,range=0:0.1:60, label="Radus", description="Radius of the circles")
     )
 
-    interface = InteractModel(pars; grouped=false, title="slinky") do m
+    interface = InteractModel(pars; ncolumns=2, grouped=false, title="slinky") do m
         m = stripparams(m)
         println(m)
         cxs_unscaled = [i * m.sample_step + m.phase for i in 1:nsamples]
