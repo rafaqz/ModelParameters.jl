@@ -8,6 +8,7 @@ end ModelParameters
 
 import AbstractNumbers,
        ConstructionBase,
+       ConstructionBaseExtras,
        Flatten,
        PrettyTables, 
        Tables 
