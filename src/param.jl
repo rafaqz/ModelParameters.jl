@@ -40,7 +40,7 @@ Base.values(p::AbstractParam) = values(parent(p))
 
 
 # AbstractNumber interface
-Base.convert(::Type{Number}, x::AbstractParam) = number(x)
+Base.convert(::Type{Number}, x::AbstractParam) = AbstractNumbers.number(x)
 Base.convert(::Type{P}, x::P) where {P<:AbstractParam} = x
 AbstractNumbers.number(p::AbstractParam) = withunits(p)
 AbstractNumbers.basetype(::Type{<:AbstractParam{T}}) where T = T
@@ -48,7 +48,7 @@ AbstractNumbers.like(::Type{<:AbstractParam}, x) = x
 
 # Flatten.jl defaults defined here: AbstractParam needs to be defined first
 const SELECT = AbstractParam
-const IGNORE = AbstractArray
+const IGNORE = Union{AbstractDict,Function} # What else to blacklist?
 
 # Concrete implementation
 
