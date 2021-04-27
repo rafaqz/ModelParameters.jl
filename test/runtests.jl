@@ -1,6 +1,7 @@
 using Aqua,
       DataFrames,
       ModelParameters,
+      StaticArrays,
       Test,
       Unitful
 
@@ -137,4 +138,15 @@ end
                          (5.0, 15.0), nothing, (50.0, 150.0) .* u"m*s^2", nothing)) ==
                         ((5.0, 15.0), (5.0, 15.0), (5.0, 15.0), nothing, 
                          (5.0, 15.0), nothing, (50.0, 150.0), nothing)
+end
+
+@testset "parameters in StaticArrays" begin
+    s2 = S2(
+        SA[Param(99)],
+        7,
+        SA[Param(100.0) Param(200.0)]
+    ) |> Model
+    @test params(s2) === (Param(99), Param(100.0), Param(200.0))
+    s2[:val] = s2[:val] .+ 1.0
+    @test params(s2) === (Param(100.0), Param(101.0), Param(201.0))
 end
