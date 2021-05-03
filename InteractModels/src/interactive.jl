@@ -31,7 +31,7 @@ Optionally, the `Param`s can also include:
 ## Keyword Arguments
 
 - `title`: `""` set a window title, if you need it.
-- `grouped`: `true`. Wether to show sliders grouped and labeled by their parent object.
+- `submodel`: `Nothing`. `Type` or `Union` that will group sliders into labeled subsections.
 - `throttle`: `0.1`. Slider throttle, in seconds. Adjust to improve performance.
 - `layout`: `vbox`. This can be any three-argument function that will combine title,
   output, and sliders (all WebIO nodes) into a combined WebIO node. You can use this
@@ -56,7 +56,7 @@ model = (;
     radii=Param(val=20,range=0:0.1:60, label="Radus")
 )
 
-ui = InteractModel(model; grouped=false, throttle=0.1) do m
+ui = InteractModel(model; submodel=Nothing, throttle=0.1) do m
     cxs_unscaled = [i * m.sample_step + m.phase for i in 1:nsamples]
     cys = sin.(cxs_unscaled) .* height/3 .+ height/2
     cxs = cxs_unscaled .* width/4pi
@@ -66,27 +66,27 @@ ui = InteractModel(model; grouped=false, throttle=0.1) do m
 end
 ```
 """
-mutable struct InteractModel{F,L,Ti,Th} <: AbstractModel
+mutable struct InteractModel{F,SM,L,Ti,Th} <: AbstractModel
     f::F
     parent::Any
-    grouped::Bool
+    submodel::SM
     layout::L
     title::Ti
     throttle::Th
     ui::Any
     function InteractModel(
-        f::F, parent; layout::L=vbox, ncolumns=nothing, grouped::Bool=true, 
+        f::F, parent; layout::L=vbox, ncolumns=nothing, submodel::SM=Nothing, 
         title::Ti="", throttle::Th=0.1
-    ) where {F,L,Ti,Th}
+    ) where {F,SM,L,Ti,Th}
         # Partially construct model
-        model = new{F,L,Ti,Th}(f, parent, grouped, layout, title, throttle, undef)
+        model = new{F,SM,L,Ti,Th}(f, parent, submodel, layout, title, throttle, undef)
 
         # Initialise an observable output object
         output = Observable(f(parent))
 
         # Generate sliders and update the model and output when they change
         sliders = attach_sliders!(f, model;
-            ncolumns=ncolumns, grouped=grouped, throttle=throttle, obs=output
+            ncolumns=ncolumns, submodel=submodel, throttle=throttle, obs=output
         )
 
         # Define the complete user interface
@@ -109,8 +109,8 @@ end
 
 
 """
-    attach_sliders!(f, model::AbstractModel; grouped=false, throttle=0.1)
-    attach_sliders!(model::AbstractModel; grouped=false, throttle=0.1, f=identity)
+    attach_sliders!(f, model::AbstractModel; submodel=false, throttle=0.1)
+    attach_sliders!(model::AbstractModel; submodel=false, throttle=0.1, f=identity)
 
 Internal method that may be useful for creating custom interfaces like `InteractModel`,
 without actually using `InteracModel` directly. This interface will be less stable than
@@ -125,8 +125,9 @@ Create sliders and attach them to the model so it will be updated when they are 
 - `model`: a [`AbstractModel`](@ref)
 
 ## Keyword Arguments
+
 - `throttle`: `0.1` - sliders response time, in seconds.
-- `grouped`: `false` - group sliders by the component object they come from.
+- `submodel`: `Nothing`. `Type` or `Union` that will group sliders into labeled subsections.
 - `obs`: An optional observable to be updated when sliders change
 
 Returns a `vbox` holding the slider widgets.
@@ -135,13 +136,22 @@ function attach_sliders!(f, model::AbstractModel; kwargs...)
     attach_sliders!(model; kwargs..., f=f)
 end
 function attach_sliders!(model::AbstractModel;
-    ncolumns=nothing, grouped=false, throttle=0.1, obs=nothing, f=identity
+    ncolumns=nothing, submodel=Nothing, throttle=0.1, obs=nothing, f=identity
 )
-    # Generte observable sliders
-    sliders, slider_obs = param_sliders(model; throttle=throttle)
+    sliderbox = if submodel === Nothing
+        objpercol = 3
+        sliders, slider_obs = param_sliders(model; throttle=throttle)
+        _in_columns(sliders, ncolumns, objpercol)
+    else
+        objpercol = 1
+        sliders, slider_obs = group_sliders(f, model, submodel, obs, throttle)
+        _in_columns(sliders, ncolumns, objpercol)
+    end
 
+    # `map` combining Observables is a little odd, *all* sliders here are splatted to `s`
+    combined_obs = map((s...) -> s, slider_obs...)
     if length(sliders) > 0
-        on(slider_obs) do values
+        on(combined_obs) do values
             try
                 model[:val] = stripunits(model, values)
                 if obs isa Observable
@@ -151,15 +161,6 @@ function attach_sliders!(model::AbstractModel;
                 println(stdout, e)
             end
         end
-    end
-
-    sliderbox = if grouped
-        slider_groups = group_sliders(model, sliders)
-        objpercol = 2
-        _in_columns(slider_groups, ncolumns, objpercol)
-    else
-        objpercol = 3
-        _in_columns(sliders, ncolumns, objpercol)
     end
 
     return sliderbox
@@ -203,28 +204,23 @@ function param_sliders(model::AbstractModel; throttle=0.1)
         slider(r; label=string(l), value=v, attributes=a)
     end
     # `map` combining Observables is a little odd, *all* sliders here are splatted to `s`
-    slider_obs = map((s...) -> s, Interact.throttle.(throttle, observe.(sliders))...)
+    slider_obs = Interact.throttle.(throttle, observe.(sliders))
 
     return sliders, slider_obs
 end
 
-function group_sliders(model::AbstractModel, sliders)
-    components = model[:component]
+function group_sliders(f, model::AbstractModel, submodel::Type, obs, throttle)
     # Group slider observations into a single observable
-    group_title = nothing
-    slider_groups = []
-    group_items = []
-    for i in 1:length(sliders)
-        component = components[i]
-        if group_title != component
-            group_title == nothing || push!(slider_groups, dom"div"(group_items...))
-            group_items = Any[dom"h2"(string(component))]
-            group_title = component
-        end
-        push!(group_items, sliders[i])
+    submodels = Flatten.flatten(parent(model), submodel)
+    submodel_sliders = map(sm -> param_sliders(Model(sm); throttle=throttle), submodels)
+    slider_groups = map(first, submodel_sliders)
+    slider_obs = collect(Iterators.flatten(map(last, submodel_sliders)))
+
+    group_doms = map(submodels, slider_groups) do sm, sl
+        dom"div"(dom"h2"(string(nameof(typeof(sm)))), sl...)
     end
-    push!(slider_groups, dom"h2"(group_items...))
-    return slider_groups
+
+    return group_doms, slider_obs
 end
 
 function _makerange(bounds::Tuple, val::T) where T

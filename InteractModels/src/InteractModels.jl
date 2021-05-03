@@ -11,6 +11,8 @@ using Interact,
 
 @reexport using ModelParameters
 
+using ModelParameters.Flatten
+
 export InteractModel, ui
 
 include("interactive.jl")
