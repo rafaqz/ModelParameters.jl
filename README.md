@@ -76,14 +76,14 @@ And parameters:
 │ Submodel2 │     γ │ 0.001 │ (0.0001, 0.01) │
 └───────────┴───────┴───────┴────────────────┘
 
-julia> model.val
+julia> model[:val]
 (0.8, 0.5, 0.8, 0.001)
 ```
 
 To get the model values as a vector for Optim.jl, simply:
 
 ```julia
-collect(model.val)
+collect(model[:val])
 ```
 
 ## What are Params?
@@ -138,7 +138,7 @@ model parameter changes you make with the generated sliders.
 You can also add new columns to all model parameters directly from the model:
 
 ```julia
-model.bounds = ((1.0, 4.0), (0.0, 1.0), (0.0, 0.1), (0.0, 100.0))
+model[:bounds] = ((1.0, 4.0), (0.0, 1.0), (0.0, 0.1), (0.0, 100.0))
 ```
 
 ### Swapping number types
@@ -147,7 +147,7 @@ ModelParameters makes it very easy to make modifications to your model
 parameters. To update all model values to be `Float32`, you can simply do: 
 
 ```julia
-model.val = map(Float32, model.val)
+model[:val] = map(Float32, model[:val])
 ```
 
 ## Tables.jl interface

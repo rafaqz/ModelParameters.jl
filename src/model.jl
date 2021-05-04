@@ -220,8 +220,6 @@ mutable struct Model <: AbstractModel
 end
 Model(m::AbstractModel) = Model(parent(m))
 
-Base.getproperty(m::Model, key::Symbol) = getindex(m, key::Symbol)
-Base.setproperty!(m::Model, key::Symbol, x) = setindex!(m, x, key::Symbol)
 
 update(x, values::AbstractVector) = update(x, Tuple(values))
 function update(x, values)
@@ -252,9 +250,6 @@ struct StaticModel{P} <: AbstractModel
     end
 end
 StaticModel(m::AbstractModel) = StaticModel(parent(m))
-
-Base.getproperty(m::StaticModel, key::Symbol) = getindex(m, key::Symbol)
-Base.setproperty!(m::StaticModel, key::Symbol, x) = setindex!(m, x, key::Symbol)
 
 # Model Utils
 
