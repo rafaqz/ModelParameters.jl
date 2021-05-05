@@ -177,7 +177,13 @@ function _in_columns(objects, ncolumns, objpercol)
 end
 
 function param_sliders(model::AbstractModel; throttle=0.1)
-    fields = model[:fieldname]
+    labels = if haskey(model, :label)
+        map(model[:label], model[:fieldname]) do n, fn
+            n === nothing ? fn : n
+        end
+    else
+        model[:fieldname]
+    end
     values = withunits(model)
     ranges = if haskey(model, :range)
         withunits(model, :range)
@@ -187,7 +193,6 @@ function param_sliders(model::AbstractModel; throttle=0.1)
         _makerange.(Ref(nothing), values)
     end
 
-    labels = haskey(model, :label) ? model[:label] : fields
     descriptions = if haskey(model, :description)
         model[:description]
     else
@@ -195,7 +200,7 @@ function param_sliders(model::AbstractModel; throttle=0.1)
     end
 
     # Set mouse hover text
-    attributes = map(model[:component], fields, descriptions) do p, n, d
+    attributes = map(model[:component], labels, descriptions) do p, n, d
         desc = d == "" ? "" : string(": ", d)
         Dict(:title => "$p.$n $desc")
     end
@@ -211,7 +216,7 @@ end
 
 function group_sliders(f, model::AbstractModel, submodel::Type, obs, throttle)
     # Group slider observations into a single observable
-    submodels = Flatten.flatten(parent(model), submodel)
+    submodels = [sm for sm in Flatten.flatten(parent(model), submodel) if length(Flatten.flatten(sm, Param)) > 0]
     submodel_sliders = map(sm -> param_sliders(Model(sm); throttle=throttle), submodels)
     slider_groups = map(first, submodel_sliders)
     slider_obs = collect(Iterators.flatten(map(last, submodel_sliders)))
