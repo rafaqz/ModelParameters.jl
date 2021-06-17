@@ -184,5 +184,5 @@ packages for immutable manipulation like Flatten.jl, Setfield.jl, Accessors.jl
 and BangBang.jl.
 
 [ConstructionBaseExtras.jl](https://github.com/JuliaObjects/ConstructionBaseExtras.jl) also
-exists to add support to common common, such as StaticArrays.jl arrays. Import it if you 
+exists to add support to common packages, such as StaticArrays.jl arrays. Import it if you 
 need StaticArrays support, or open an issue to add support to additional packages.
