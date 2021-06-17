@@ -23,7 +23,7 @@ Once these models grow beyond a certain complexity it becomes preferable to
 organise them in modular way, and to reuse components in variants in other
 models. This pattern is seen in climate models and land models related to CLIMA
 project, and in ecological modelling tools like DynamicGrids.jl and
-GrowthMaps.jl.
+GrowthMaps.jl that this package was built for.
 
 Models may be structured as a composed nested hierarchy of structs, `Tuple`
 chains of objects, `NameTuple`s, or some combination of the above. For
@@ -182,3 +182,7 @@ Defining `ConstructionBase.constructorof` from
 the solution to this, and will also mean your objects can be used with other
 packages for immutable manipulation like Flatten.jl, Setfield.jl, Accessors.jl
 and BangBang.jl.
+
+[ConstructionBaseExtras.jl](https://github.com/JuliaObjects/ConstructionBaseExtras.jl) also
+exists to add support to common common, such as StaticArrays.jl arrays. Import it if you 
+need StaticArrays support, or open an issue to add support to additional packages.
