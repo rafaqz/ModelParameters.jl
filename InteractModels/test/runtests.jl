@@ -66,3 +66,12 @@ using InteractModels, DataFrames, Interact, Test
     end
 
 end
+
+@testset "empty models still work" begin
+    InteractModel((; named=:tuple, without=:params); ncolumns=2) do m
+        hbox()
+    end
+    InteractModel((; p1=Param(1), p2=Param(2)); submodel=Tuple, ncolumns=2) do m
+        hbox()
+    end
+end

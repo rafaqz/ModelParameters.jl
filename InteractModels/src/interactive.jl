@@ -138,6 +138,8 @@ end
 function attach_sliders!(model::AbstractModel;
     ncolumns=nothing, submodel=Nothing, throttle=0.1, obs=nothing, f=identity
 )
+    length(params(model)) == 0 && return hbox()
+
     sliderbox = if submodel === Nothing
         objpercol = 3
         sliders, slider_obs = param_sliders(model; throttle=throttle)
@@ -147,6 +149,8 @@ function attach_sliders!(model::AbstractModel;
         sliders, slider_obs = group_sliders(f, model, submodel, obs, throttle)
         _in_columns(sliders, ncolumns, objpercol)
     end
+
+    length(slider_obs) == 0 && return hbox()
 
     # `map` combining Observables is a little odd, *all* sliders here are splatted to `s`
     combined_obs = map((s...) -> s, slider_obs...)
@@ -168,15 +172,19 @@ end
 
 function _in_columns(objects, ncolumns, objpercol)
     nobjects = length(objects)
+    nobjects == 0 && return hbox() 
+
     if ncolumns isa Nothing
-        ncolumns = min(MAX_COLUMNS, (length(objects) - 1) ÷ objpercol + 1)
+        ncolumns = max(1, min(MAX_COLUMNS, (nobjects - 1) ÷ objpercol + 1))
     end
     npercol = (nobjects - 1) ÷ ncolumns + 1
     cols = collect(objects[(npercol * (i - 1) + 1):min(nobjects, npercol * i)] for i in 1:ncolumns)
-    hbox(map(col -> vbox(col...), cols)...)
+    return hbox(map(col -> vbox(col...), cols)...)
 end
 
 function param_sliders(model::AbstractModel; throttle=0.1)
+    length(params(model)) == 0 && return [], []
+
     labels = if haskey(model, :label)
         map(model[:label], model[:fieldname]) do n, fn
             n === nothing ? fn : n
@@ -217,6 +225,8 @@ end
 function group_sliders(f, model::AbstractModel, submodel::Type, obs, throttle)
     # Group slider observations into a single observable
     submodels = [sm for sm in Flatten.flatten(parent(model), submodel) if length(Flatten.flatten(sm, Param)) > 0]
+    length(submodels) == 0 && return [], []
+
     submodel_sliders = map(sm -> param_sliders(Model(sm); throttle=throttle), submodels)
     slider_groups = map(first, submodel_sliders)
     slider_obs = collect(Iterators.flatten(map(last, submodel_sliders)))
