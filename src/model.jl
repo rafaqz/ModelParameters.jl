@@ -220,11 +220,28 @@ mutable struct Model <: AbstractModel
 end
 Model(m::AbstractModel) = Model(parent(m))
 
+@inline @generated function _update_params(ps::P, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
+    expr = Expr(:tuple)
+    for i in 1:N
+        expr_i = :(Param(NamedTuple{keys(ps[$i])}((values[$i], Base.tail(parent(ps[$i]))...))))
+        push!(expr.args, expr_i)
+    end
+    return expr
+end
 
-update(x, values::AbstractVector) = update(x, Tuple(values))
-function update(x, values)
-    newparams = map(params(x), values) do param, value
-        Param(NamedTuple{keys(param)}((value, Base.tail(parent(param))...)))
+update(x, values) = _update(ModelParameters.params(x), x, values)
+@inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
+    @assert length(values) == N "values length must match the number of parameters"
+    newparams = _update_params(p, values)
+    Flatten.reconstruct(x, newparams, SELECT, IGNORE)
+end
+@inline function _update(p::P, x, table) where {N,P<:NTuple{N,Param}}
+    @assert size(table, 1) == N "number of rows must match the number of parameters"
+    colnames = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
+    newparams = map(p, tuple(1:N...)) do param, i
+        let names = keys(param);
+            Param(NamedTuple{names}(map(name -> Tables.getcolumn(table, name)[i], names)))
+        end
     end
     Flatten.reconstruct(x, newparams, SELECT, IGNORE)
 end
@@ -259,7 +276,7 @@ _expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), SELECT, IGNORE
 function _expandkeys(x)
     pars = params(x)
     allkeys = Tuple(union(map(keys, pars)...))
-    newpars = map(pars) do par
+    return map(pars) do par
         vals = map(allkeys) do key
             get(par, key, nothing)
         end
