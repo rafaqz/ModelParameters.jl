@@ -5,6 +5,8 @@ using Aqua,
       Test,
       Unitful
 
+import BenchmarkTools
+
 @testset "param math" begin
     # We don't have to test everything, that is for AbstractNumbers.jl
     @test 2 * Param(5.0; bounds=(5.0, 15.0)) == 10.0
@@ -107,6 +109,9 @@ end
     df.val .*= 3
     ModelParameters.update!(m, df)
     @test m[:val] == (3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 297, 300.0)
+    df.val ./= 3
+    newm = @inferred ModelParameters.update(m, df)
+    @test newm[:val] == (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 99.0, 100.0)
 end
 
 @testset "use Unitful units, with StaticModel" begin
@@ -149,4 +154,26 @@ end
     @test params(s2) === (Param(99), Param(100.0), Param(200.0))
     s2[:val] = s2[:val] .+ 1.0
     @test params(s2) === (Param(100.0), Param(101.0), Param(201.0))
+end
+
+@testset "type stable update" begin
+    s1 = S1(
+       Param(1.0; bounds=(5.0, 15.0)),
+       Param(2.0; bounds=(5.0, 15.0), units=u"s"),
+       Param(3.0; bounds=(5.0, 15.0), units=u"K"),
+       Param(4.0; units=u"m"),
+       Param(5.0; bounds=(5.0, 15.0)),
+       Param(6.0),
+    )
+    s2 = S2(
+        s1,
+        Param(7.0; bounds=(50.0, 150.0), units=u"m*s^2"),
+        Param(8.0),
+    )
+    m = Model(s2)
+    ps = collect(m[:val]).*2.0
+    new_s2 = @inferred update(s2, ps)
+    @test all(Model(new_s2)[:val] .== ps)
+    b = BenchmarkTools.@benchmark update($s2, $ps)
+    @test b.allocs == 0
 end
