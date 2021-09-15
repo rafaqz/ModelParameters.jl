@@ -285,3 +285,45 @@ function _expandkeys(x)
 end
 
 _noparamwarning() = @warn "Model has no Param fields"
+
+# Parameter grouping
+"""
+    group(m::AbstractModel, cols::Symbol...)
+
+Groups parameters in `m` hierarchically according to `cols`. A `Symbol` constructor must be defined for the value type of each
+parameter field (e.g. `String`, `Symbol`, and `Int` would all be valid by default). The returned value is a nested named tuple
+where the hierachical order follows the order of `cols`.
+
+For example, we could group parameters first by component name, then by field name:
+
+# Examples
+```julia-repl
+julia> group(Model((a=Param(1.0), b=Param(2.0))), :component, :fieldname)
+(NamedTuple = (a = ..., b = ...),)
+```
+"""
+group(m::AbstractModel) = m
+group(m::AbstractModel, cols::Symbol...) = _group(m, cols...)
+_group(m) = [Param(NamedTuple(tuple(:val => p.val, (k => p[k] for k in keys(p) if k != :val)...))) for p in m]
+function _group(m, cols::Symbol...)
+    col = first(cols)
+    names = Symbol.(Tables.getcolumn(Tables.columns(m), col))
+    groupnames = Tuple(unique(names))
+    return NamedTuple{groupnames}(Tuple(_group(filter(x -> Symbol(x[col]) == n, Tables.rows(m)), Base.tail(cols)...) for n in groupnames))
+end
+"""
+    flat(f; matchtype::Type=Union{NamedTuple,Tuple,AbstractArray})
+
+Produces a function `x -> f(x)` where `f` is applied to all nested non-collection elements of `x`.
+
+# Examples
+```julia-repl
+julia> map(apply(x -> 2*x), (a = (b = (1,)), c = (d = (2,))))
+(a = (b = (2,)), c = (d = (4,)))
+```
+"""
+function flat(f; matchtype::Type{T}=Union{NamedTuple,Tuple,AbstractArray}) where {T}
+    select(x) = f(x)
+    select(x::T) = map(select, x)
+    return select
+end

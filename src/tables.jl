@@ -19,4 +19,4 @@ Tables.getcolumn(m::AbstractModel, ::Type{T}, col::Int, nm::Symbol) where T =
 Tables.rowaccess(::Type{<:AbstractModel}) = true
 # Vector of NamedTuple already has a row interface defined,
 # so we take a shortcut and return that.
-Tables.rows(m::AbstractModel) = [nt for nt in map(fields, params(m))]
+Tables.rows(m::AbstractModel) = [nt for nt in map((p,typ,name) -> merge((component=typ,fieldname=name), parent(p)), params(m), paramparenttypes(m), paramfieldnames(m))]
