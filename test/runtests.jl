@@ -193,13 +193,13 @@ end
         Param(8.0, group=:B),
     )
     m = Model(s2)
-    # group
-    groupedparams = group(m, :group)
+    # groupparams
+    groupedparams = groupparams(m, :group)
     @test haskey(groupedparams, :A)
     @test length(groupedparams.A) == 4
     @test haskey(groupedparams, :B)
     @test length(groupedparams.B) == 4
-    groupedparams = group(m, :group, :fieldname)
+    groupedparams = groupparams(m, :group, :fieldname)
     @test haskey(groupedparams, :A)
     @test haskey(groupedparams, :B)
     @test groupedparams.A.a == [s1.a]
@@ -211,7 +211,7 @@ end
     @test groupedparams.A.i == [s2.i]
     @test groupedparams.B.j == [s2.j]
     # flat
-    groupedvals = map(flat(p -> p.val), groupedparams)
+    groupedvals = mapflat(p -> p.val, groupedparams)
     @test groupedvals.A.a == [s1.a.val]
     @test groupedvals.A.b == [s1.b.val]
     @test groupedvals.A.c == [s1.c.val]
@@ -220,8 +220,8 @@ end
     @test groupedvals.B.f == [s1.f.val]
     @test groupedvals.A.i == [s2.i.val]
     @test groupedvals.B.j == [s2.j.val]
-    # convert to tuples; uses matchtype kwarg to recurse only on NamedTuples, not arrays
-    tuplegroups = map(flat(Tuple, matchtype=NamedTuple), groupedparams)
+    # convert to tuples; uses maptype kwarg to recurse exclusively on NamedTuples, not arrays
+    tuplegroups = mapflat(Tuple, groupedparams; maptype=NamedTuple)
     @test isa(tuplegroups.A.a, Tuple)
     @test isa(tuplegroups.A.b, Tuple)
     @test isa(tuplegroups.A.c, Tuple)

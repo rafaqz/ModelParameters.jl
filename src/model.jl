@@ -288,7 +288,7 @@ _noparamwarning() = @warn "Model has no Param fields"
 
 # Parameter grouping
 """
-    group(m::AbstractModel, cols::Symbol...)
+    groupparams(m::AbstractModel, cols::Symbol...)
 
 Groups parameters in `m` hierarchically according to `cols`. A `Symbol` constructor must be defined for the value type of each
 parameter field (e.g. `String`, `Symbol`, and `Int` would all be valid by default). The returned value is a nested named tuple
@@ -302,28 +302,30 @@ julia> group(Model((a=Param(1.0), b=Param(2.0))), :component, :fieldname)
 (NamedTuple = (a = ..., b = ...),)
 ```
 """
-group(m::AbstractModel) = m
-group(m::AbstractModel, cols::Symbol...) = _group(m, cols...)
-_group(m) = [Param(NamedTuple(tuple(:val => p.val, (k => p[k] for k in keys(p) if k != :val)...))) for p in m]
-function _group(m, cols::Symbol...)
+groupparams(m::AbstractModel) = m
+groupparams(m::AbstractModel, cols::Symbol...) = _groupparams(m, cols...)
+_groupparams(m) = [Param(NamedTuple(tuple(:val => p.val, (k => p[k] for k in keys(p) if k != :val)...))) for p in m]
+function _groupparams(m, cols::Symbol...)
     col = first(cols)
-    names = Symbol.(Tables.getcolumn(Tables.columns(m), col))
+    names = map(Symbol, Tables.getcolumn(Tables.columns(m), col))
     groupnames = Tuple(unique(names))
-    return NamedTuple{groupnames}(Tuple(_group(filter(x -> Symbol(x[col]) == n, Tables.rows(m)), Base.tail(cols)...) for n in groupnames))
+    return NamedTuple{groupnames}(Tuple(_groupparams(filter(x -> Symbol(x[col]) == n, Tables.rows(m)), Base.tail(cols)...) for n in groupnames))
 end
 """
-    flat(f; matchtype::Type=Union{NamedTuple,Tuple,AbstractArray})
+    mapflat(f, collection; maptype::Type=Union{NamedTuple,Tuple,AbstractArray})
 
-Produces a function `x -> f(x)` where `f` is applied to all nested non-collection elements of `x`.
+"Flattened" version of `map` where `f` is applied to all nested non-collection elements of `x`. The transformed result
+is returned with the nested structure of the input `x` unchanged. Note that this differs from `flatmap` in functional
+settings, which is typically just `map` followed by `flatten`.
 
 # Examples
 ```julia-repl
-julia> map(apply(x -> 2*x), (a = (b = (1,)), c = (d = (2,))))
+julia> mapflat(x -> 2*x, (a = (b = (1,)), c = (d = (2,))))
 (a = (b = (2,)), c = (d = (4,)))
 ```
 """
-function flat(f; matchtype::Type{T}=Union{NamedTuple,Tuple,AbstractArray}) where {T}
+function mapflat(f, collection; maptype::Type{T}=Union{NamedTuple,Tuple,AbstractArray}) where {T}
     select(x) = f(x)
     select(x::T) = map(select, x)
-    return select
+    return map(select, collection)
 end

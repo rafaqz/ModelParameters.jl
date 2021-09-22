@@ -19,7 +19,7 @@ export AbstractModel, Model, StaticModel
 
 export AbstractParam, Param
 
-export params, printparams, stripparams, update, update!, withunits, stripunits, group, flat
+export params, printparams, stripparams, update, update!, withunits, stripunits, groupparams, mapflat
 
 include("interface.jl")
 include("param.jl")
