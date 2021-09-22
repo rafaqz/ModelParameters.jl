@@ -298,7 +298,7 @@ For example, we could group parameters first by component name, then by field na
 
 # Examples
 ```julia-repl
-julia> group(Model((a=Param(1.0), b=Param(2.0))), :component, :fieldname)
+julia> groupparams(Model((a=Param(1.0), b=Param(2.0))), :component, :fieldname)
 (NamedTuple = (a = ..., b = ...),)
 ```
 """
