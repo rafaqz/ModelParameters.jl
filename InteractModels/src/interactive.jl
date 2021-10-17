@@ -99,8 +99,6 @@ InteractModel(f, model::Model; kwargs...) = InteractModel(f, parent(model); kwar
 
 ui(m::InteractModel) = getfield(m, :ui)
 
-Base.getproperty(m::InteractModel, key::Symbol) = getindex(m, key::Symbol)
-Base.setproperty!(m::InteractModel, key::Symbol, x) = setindex!(m, x, key::Symbol)
 Base.display(m::InteractModel) = display(ui(m))
 
 @WebIO.register_renderable(InteractModel) do m
