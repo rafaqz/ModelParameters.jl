@@ -285,3 +285,47 @@ function _expandkeys(x)
 end
 
 _noparamwarning() = @warn "Model has no Param fields"
+
+# Parameter grouping
+"""
+    groupparams(m::AbstractModel, cols::Symbol...)
+
+Groups parameters in `m` hierarchically according to `cols`. A `Symbol` constructor must be defined for the value type of each
+parameter field (e.g. `String`, `Symbol`, and `Int` would all be valid by default). The returned value is a nested named tuple
+where the hierachical order follows the order of `cols`.
+
+For example, we could group parameters first by component name, then by field name:
+
+# Examples
+```julia-repl
+julia> groupparams(Model((a=Param(1.0), b=Param(2.0))), :component, :fieldname)
+(NamedTuple = (a = ..., b = ...),)
+```
+"""
+groupparams(m::AbstractModel) = m
+groupparams(m::AbstractModel, cols::Symbol...) = _groupparams(m, cols...)
+_groupparams(m) = [Param(NamedTuple(tuple(:val => p.val, (k => p[k] for k in keys(p) if k != :val)...))) for p in m]
+function _groupparams(m, cols::Symbol...)
+    col = first(cols)
+    names = map(Symbol, Tables.getcolumn(Tables.columns(m), col))
+    groupnames = Tuple(unique(names))
+    return NamedTuple{groupnames}(Tuple(_groupparams(filter(x -> Symbol(x[col]) == n, Tables.rows(m)), Base.tail(cols)...) for n in groupnames))
+end
+"""
+    mapflat(f, collection; maptype::Type=Union{NamedTuple,Tuple,AbstractArray})
+
+"Flattened" version of `map` where `f` is applied to all nested non-collection elements of `x`. The transformed result
+is returned with the nested structure of the input `x` unchanged. Note that this differs from `flatmap` in functional
+settings, which is typically just `map` followed by `flatten`.
+
+# Examples
+```julia-repl
+julia> mapflat(x -> 2*x, (a = (b = (1,)), c = (d = (2,))))
+(a = (b = (2,)), c = (d = (4,)))
+```
+"""
+function mapflat(f, collection; maptype::Type{T}=Union{NamedTuple,Tuple,AbstractArray}) where {T}
+    select(x) = f(x)
+    select(x::T) = map(select, x)
+    return map(select, collection)
+end

@@ -177,3 +177,57 @@ end
     b = BenchmarkTools.@benchmark update($s2, $ps)
     @test b.allocs == 0
 end
+
+@testset "parameter grouping" begin
+    s1 = S1(
+       Param(1.0; bounds=(5.0, 15.0), group=:A),
+       Param(2.0; bounds=(5.0, 15.0), units=u"s", group=:A),
+       Param(3.0; bounds=(5.0, 15.0), units=u"K", group=:A),
+       Param(4.0; units=u"m", group=:B),
+       Param(5.0; bounds=(5.0, 15.0), group=:B),
+       Param(6.0, group=:B),
+    )
+    s2 = S2(
+        s1,
+        Param(7.0; bounds=(50.0, 150.0), units=u"m*s^2", group=:A),
+        Param(8.0, group=:B),
+    )
+    m = Model(s2)
+    # groupparams
+    groupedparams = groupparams(m, :group)
+    @test haskey(groupedparams, :A)
+    @test length(groupedparams.A) == 4
+    @test haskey(groupedparams, :B)
+    @test length(groupedparams.B) == 4
+    groupedparams = groupparams(m, :group, :fieldname)
+    @test haskey(groupedparams, :A)
+    @test haskey(groupedparams, :B)
+    @test groupedparams.A.a == [s1.a]
+    @test groupedparams.A.b == [s1.b]
+    @test groupedparams.A.c == [s1.c]
+    @test groupedparams.B.d == [s1.d]
+    @test groupedparams.B.e == [s1.e]
+    @test groupedparams.B.f == [s1.f]
+    @test groupedparams.A.i == [s2.i]
+    @test groupedparams.B.j == [s2.j]
+    # flat
+    groupedvals = mapflat(p -> p.val, groupedparams)
+    @test groupedvals.A.a == [s1.a.val]
+    @test groupedvals.A.b == [s1.b.val]
+    @test groupedvals.A.c == [s1.c.val]
+    @test groupedvals.B.d == [s1.d.val]
+    @test groupedvals.B.e == [s1.e.val]
+    @test groupedvals.B.f == [s1.f.val]
+    @test groupedvals.A.i == [s2.i.val]
+    @test groupedvals.B.j == [s2.j.val]
+    # convert to tuples; uses maptype kwarg to recurse exclusively on NamedTuples, not arrays
+    tuplegroups = mapflat(Tuple, groupedparams; maptype=NamedTuple)
+    @test isa(tuplegroups.A.a, Tuple)
+    @test isa(tuplegroups.A.b, Tuple)
+    @test isa(tuplegroups.A.c, Tuple)
+    @test isa(tuplegroups.B.d, Tuple)
+    @test isa(tuplegroups.B.e, Tuple)
+    @test isa(tuplegroups.B.f, Tuple)
+    @test isa(tuplegroups.A.i, Tuple)
+    @test isa(tuplegroups.B.j, Tuple)
+end
