@@ -52,14 +52,6 @@ pars = ModelParameters.params(s1)
     @test all(map(p -> isa(p, Param), pars))
 end
 
-@testset "param math" begin
-    # We don't have to test everything, that is for AbstractNumbers.jl
-    @test 2 * Param(5.0; bounds=(5.0, 15.0)) == 10.0
-    @test Param(5.0; bounds=(5.0, 15.0)) + 3 == 8.0
-    @test Param(5.0; bounds=(5.0, 15.0))^2 === 25.0
-    @test Param(5; bounds=(5.0, 15.0))^2 === 25
-end
-
 @testset "missing fields are added to Model Params" begin
     m = Model(s1);
     @test all(map(p -> propertynames(p) == (:val, :bounds), params(m)))
