@@ -10,6 +10,11 @@ constructor that accepts a `NamedTuple`. It must have a `val` property, and shou
 """
 abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
 
+function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P <: AbstractParam
+    fields = ConstructionBase.setproperties(parent(p), patch)
+    P.name.wrapper(fields)
+end
+
 @inline withunits(m, args...) = map(p -> withunits(p, args...), params(m))
 @inline function withunits(p::AbstractParam, fn::Symbol=:val)
     _applyunits(*, getproperty(p, fn), get(p, :units, nothing))
