@@ -83,8 +83,10 @@ abstract type AbstractModel end
 Base.parent(m::AbstractModel) = getfield(m, :parent)
 setparent(m::AbstractModel, newparent) = @set m.parent = newparent
 
-params(m::AbstractModel) = params(parent(m))
-stripparams(m::AbstractModel) = stripparams(parent(m))
+params(m::AbstractModel; kw...) = params(parent(m); kw...)
+stripparams(m::AbstractModel; kw...) = stripparams(parent(m); kw...)
+paramfieldnames(m::AbstractModel; kw...) = paramfieldnames(parent(m); kw...)
+paramparenttypes(m::AbstractModel; kw...) = paramparenttypes(parent(m); kw...)
 function update(x::T, values) where {T<:AbstractModel} 
     hasfield(T, :parent) || _updatenotdefined(T)
     setparent(x, update(parent(x), values))
@@ -92,8 +94,6 @@ end
 
 @noinline _update_methoderror(T) = error("Interface method `update` is not defined for $T")
 
-paramfieldnames(m) = Flatten.fieldnameflatten(parent(m), SELECT, IGNORE)
-paramparenttypes(m) = Flatten.metaflatten(parent(m), _fieldparentbasetype, SELECT, IGNORE)
 
 _fieldparentbasetype(T, ::Type{Val{N}}) where N = T.name.wrapper
 
@@ -102,64 +102,64 @@ _fieldparentbasetype(T, ::Type{Val{N}}) where N = T.name.wrapper
 
 # It may seem expensive always calling `param`, but flattening the
 # object occurs once at compile-time, and should have very little cost here.
-Base.length(m::AbstractModel) = length(params(m))
-Base.size(m::AbstractModel) = (length(params(m)),)
-Base.first(m::AbstractModel) = first(params(m))
-Base.last(m::AbstractModel) = last(params(m))
+Base.length(m::AbstractModel; kw...) = length(params(m; kw...))
+Base.size(m::AbstractModel; kw...) = (length(params(m; kw...)),)
+Base.first(m::AbstractModel; kw...) = first(params(m; kw...))
+Base.last(m::AbstractModel; kw...) = last(params(m; kw...))
 Base.firstindex(m::AbstractModel) = 1
-Base.lastindex(m::AbstractModel) = length(params(m))
+Base.lastindex(m::AbstractModel; kw...) = length(params(m; kw...))
 Base.getindex(m::AbstractModel, i) = getindex(params(m), i)
 Base.iterate(m::AbstractModel) = (first(params(m)), 1)
 Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (params(m)[s], s + 1)
 
 # Vector methods
-Base.collect(m::AbstractModel) = collect(m.val)
-Base.vec(m::AbstractModel) = collect(m)
-Base.Array(m::AbstractModel) = vec(m)
+Base.collect(m::AbstractModel; kw...) = collect(m[:val; kw...])
+Base.vec(m::AbstractModel; kw...) = collect(m; kw...)
+Base.Array(m::AbstractModel; kw...) = vec(m; kw...)
 
 # Dict methods - data as columns
 Base.haskey(m::AbstractModel, key::Symbol) = key in keys(m)
 Base.keys(m::AbstractModel) = _keys(params(m), m)
 
-@inline function Base.setindex!(m::AbstractModel, x, nm::Symbol)
+@inline function Base.setindex!(m::AbstractModel, x, nm::Symbol; kw...)
     if nm == :component
         erorr("cannot set :component index")
     elseif nm == :fieldname
         erorr("cannot set :fieldname index")
     else
         newparent = if nm in keys(m)
-            _setindex(parent(m), Tuple(x), nm)
+            _setindex(parent(m), Tuple(x), nm; kw...)
         else                                 
-            _addindex(parent(m), Tuple(x), nm)
+            _addindex(parent(m), Tuple(x), nm; kw...)
         end
         setparent!(m, newparent)
     end
 end
 # TODO do this with lenses
-@inline function _setindex(obj, xs::Tuple, nm::Symbol)
+@inline function _setindex(obj, xs::Tuple, nm::Symbol; select=SELECT, ignore=IGNORE)
     lens = Setfield.PropertyLens{nm}()
-    newparams = map(params(obj), xs) do par, x
-        Param(Setfield.set(parent(par), lens, x))
+    newparams = map(params(obj; select, ignore), xs) do p, x
+        setparent(p, Setfield.set(parent(p), lens, x))
     end
-    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
+    Flatten.reconstruct(obj, newparams, select, ignore)
 end
-@inline function _addindex(obj, xs::Tuple, nm::Symbol)
-    newparams = map(params(obj), xs) do par, x
-        Param((; parent(par)..., (nm => x,)...))
+@inline function _addindex(obj, xs::Tuple, nm::Symbol; select=SELECT, ignore=IGNORE)
+    newparams = map(params(obj), xs) do p, x
+        setparent(p, (; parent(p)..., (nm => x,)...))
     end
-    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
+    Flatten.reconstruct(obj, newparams, select, ignore)
 end
 
 _keys(params::Tuple, m::AbstractModel) = (:component, :fieldname, keys(first(params))...)
 _keys(params::Tuple{}, m::AbstractModel) = ()
 
-@inline function Base.getindex(m::AbstractModel, nm::Symbol)
+@inline function Base.getindex(m::AbstractModel, nm::Symbol; kw...)
     if nm == :component
-        paramparenttypes(m)
+        paramparenttypes(m; kw...)
     elseif nm == :fieldname
-        paramfieldnames(m)
+        paramfieldnames(m; kw...)
     else
-        map(p -> getindex(p, nm), params(m))
+        map(p -> getindex(p, nm), params(m; kw...))
     end
 end
 
@@ -181,16 +181,15 @@ end
 
 setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
 
-update!(m::AbstractModel, vals::AbstractVector{<:AbstractParam}) = update!(m, Tuple(vals))
-function update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}})
-    setparent!(m, Flatten.reconstruct(parent(m), params, SELECT, IGNORE))
+function update!(m::AbstractModel, vals::AbstractVector{<:AbstractParam}; kw...)
+    update!(m, Tuple(vals); kw...)
 end
-function update!(m::AbstractModel, table)
+function update!(m::AbstractModel, table; kw...)
     cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
     for col in cols
-        setindex!(m, Tables.getcolumn(table, col), col)
+        setindex!(m, Tables.getcolumn(table, col), col; kw...)
     end
-    m
+    return m
 end
 
 """
@@ -220,30 +219,34 @@ mutable struct Model <: AbstractModel
 end
 Model(m::AbstractModel) = Model(parent(m))
 
-@inline @generated function _update_params(ps::P, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
+const ParamTuple = Tuple{Vararg{<:AbstractParam}}
+
+@inline @generated function _update_params(ps::P, values::Union{<:AbstractVector,<:Tuple}) where {P<:ParamTuple}
     expr = Expr(:tuple)
-    for i in 1:N
-        expr_i = :(Param(NamedTuple{keys(ps[$i])}((values[$i], Base.tail(parent(ps[$i]))...))))
+    for i in 1:length(ps.parameters)
+        expr_i = :(setparent(ps[$i], NamedTuple{keys(ps[$i])}((values[$i], tail(parent(ps[$i]))...))))
         push!(expr.args, expr_i)
     end
     return expr
 end
 
-update(x, values) = _update(ModelParameters.params(x), x, values)
-@inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
-    @assert length(values) == N "values length must match the number of parameters"
-    newparams = _update_params(p, values)
-    Flatten.reconstruct(x, newparams, SELECT, IGNORE)
+update(x, values; kw...) = _update(ModelParameters.params(x), x, values; kw...)
+@inline function _update(ps::P, x, values::Union{<:AbstractVector,<:Tuple};
+    select=SELECT, ignore=IGNORE
+) where {P<:ParamTuple}
+    @assert length(values) == length(ps) "values length must match the number of parameters"
+    newparams = _update_params(ps, values)
+    return Flatten.reconstruct(x, newparams, select, ignore)
 end
-@inline function _update(p::P, x, table) where {N,P<:NTuple{N,Param}}
-    @assert size(table, 1) == N "number of rows must match the number of parameters"
+@inline function _update(ps::P, x, table; select=SELECT, ignore=IGNORE) where {P<:ParamTuple}
+    @assert size(table, 1) == length(ps) "number of rows must match the number of parameters"
     colnames = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
-    newparams = map(p, tuple(1:N...)) do param, i
-        let names = keys(param);
-            Param(NamedTuple{names}(map(name -> Tables.getcolumn(table, name)[i], names)))
+    newparams = map(ps, tuple(1:length(ps)...)) do p, i
+        let names = keys(p);
+            setparent(p, NamedTuple{names}(map(name -> Tables.getcolumn(table, name)[i], names)))
         end
     end
-    Flatten.reconstruct(x, newparams, SELECT, IGNORE)
+    return Flatten.reconstruct(x, newparams, select, ignore)
 end
 
 """
@@ -270,17 +273,17 @@ StaticModel(m::AbstractModel) = StaticModel(parent(m))
 
 # Model Utils
 
-_expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), SELECT, IGNORE)
+_expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), select, ignore)
 # Expand all Params to have the same keys, filling with `nothing`
 # This probably will allocate due to `union` returning `Vector`
 function _expandkeys(x)
     pars = params(x)
     allkeys = Tuple(union(map(keys, pars)...))
-    return map(pars) do par
+    return map(pars) do p
         vals = map(allkeys) do key
-            get(par, key, nothing)
+            get(p, key, nothing)
         end
-        Param(NamedTuple{allkeys}(vals))
+        setparent(p, NamedTuple{allkeys}(vals))
     end
 end
 
