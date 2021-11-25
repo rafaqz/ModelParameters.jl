@@ -309,7 +309,7 @@ function _groupparams(m, cols::Symbol...)
     col = first(cols)
     names = map(Symbol, Tables.getcolumn(Tables.columns(m), col))
     groupnames = Tuple(unique(names))
-    return NamedTuple{groupnames}(Tuple(_groupparams(filter(x -> Symbol(x[col]) == n, Tables.rows(m)), Base.tail(cols)...) for n in groupnames))
+    return NamedTuple{groupnames}(Tuple(_groupparams(filter(x -> Symbol(x[col]) == n, collect(Tables.rows(m))), Base.tail(cols)...) for n in groupnames))
 end
 """
     mapflat(f, collection; maptype::Type=Union{NamedTuple,Tuple,AbstractArray})
