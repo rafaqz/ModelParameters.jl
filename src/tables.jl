@@ -14,9 +14,3 @@ Tables.getcolumn(m::AbstractModel, nm::Symbol) = collect(getindex(m, nm))
 Tables.getcolumn(m::AbstractModel, i::Int) = collect(getindex(m, i))
 Tables.getcolumn(m::AbstractModel, ::Type{T}, col::Int, nm::Symbol) where T = 
     collect(getindex(m, nm))
-
-# As rows
-Tables.rowaccess(::Type{<:AbstractModel}) = true
-# Vector of NamedTuple already has a row interface defined,
-# so we take a shortcut and return that.
-Tables.rows(m::AbstractModel) = [nt for nt in map((p,typ,name) -> merge((component=typ,fieldname=name), parent(p)), params(m), paramparenttypes(m), paramfieldnames(m))]
