@@ -5,6 +5,8 @@ using Aqua,
       StaticArrays,
       Test,
       Unitful
+p = Param(2.0, units = "k", bounds = (1, 2))
+@set p.val = 1
 
 import BenchmarkTools
 
@@ -101,6 +103,9 @@ end
         Union{Float64,Int64},
         Union{Nothing,Tuple{Float64,Float64}},
     )
+    @test Tables.rows(m) isa Tables.RowIterator
+    @test Tables.columns(m) isa Model
+
     df = DataFrame(m)
     @test all(df.component .== m[:component])
     @test all(df.fieldname .== m[:fieldname])
