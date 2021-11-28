@@ -5,8 +5,6 @@ using Aqua,
       StaticArrays,
       Test,
       Unitful
-p = Param(2.0, units = "k", bounds = (1, 2))
-@set p.val = 1
 
 import BenchmarkTools
 
@@ -83,6 +81,17 @@ end
     @test m[:val] == (2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 198, 200.0)
     m[:newfield] = ntuple(x -> x, 8)
     @test m[:newfield] == ntuple(x -> x, 8)
+end
+
+@testset "show" begin
+    m = Model(s1)
+    sh = sprint(show, MIME"text/plain"(), m)
+    @test occursin("Model with parent", sh)
+    @test occursin("S1", sh)
+    @test occursin("Param", sh)
+    @test occursin("┌──────", sh)
+    @test occursin("component", sh)
+    @test occursin("100.0", sh)
 end
 
 @testset "strip params from model" begin
