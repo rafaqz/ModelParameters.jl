@@ -163,10 +163,10 @@ _keys(params::Tuple{}, m::AbstractModel) = ()
     end
 end
 
-function Base.show(io::IO, ::MIME"text/plain", m::AbstractModel)
-    show(typeof(m))
+function Base.show(io::IO, mime::MIME"text/plain", m::AbstractModel)
+    show(io, mime, typeof(m))
     println(io, " with parent object of type: \n")
-    show(typeof(parent(m)))
+    show(io, mime, typeof(parent(m)))
     println(io, "\n\n")
     printparams(io::IO, m)
 end
