@@ -94,9 +94,16 @@ end
 
 paramfieldnames(m) = Flatten.fieldnameflatten(parent(m), SELECT, IGNORE)
 paramparenttypes(m) = Flatten.metaflatten(parent(m), _fieldparentbasetype, SELECT, IGNORE)
+_fieldparentbasetype(T, ::Type{Val{N}}) where N = component(T)
 
-_fieldparentbasetype(T, ::Type{Val{N}}) where N = T.name.wrapper
+"""
+    component(::Type{T}) where T
 
+Generates the identifier stored in the :component field of an `AbstractModel`. The default
+implementation simply uses `T.name.wrapper` which is the `UnionAll` type corresponding to
+the unparameterized type name of `T`.
+"""
+component(::Type{T}) where T = T.name.wrapper
 
 # Tuple-like indexing and iterables interface
 
@@ -237,10 +244,10 @@ update(x, values) = _update(ModelParameters.params(x), x, values)
 end
 @inline function _update(p::P, x, table) where {N,P<:NTuple{N,Param}}
     @assert size(table, 1) == N "number of rows must match the number of parameters"
-    colnames = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
+    cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
     newparams = map(p, tuple(1:N...)) do param, i
         let names = keys(param);
-            Param(NamedTuple{names}(map(name -> Tables.getcolumn(table, name)[i], names)))
+            Param(NamedTuple{names}(map(name -> Tables.getcolumn(table, name)[i], cols)))
         end
     end
     Flatten.reconstruct(x, newparams, SELECT, IGNORE)
