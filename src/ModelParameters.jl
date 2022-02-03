@@ -14,6 +14,8 @@ import AbstractNumbers,
        Tables 
 
 using Setfield
+
+using Base: tail
       
 export AbstractModel, Model, StaticModel
 

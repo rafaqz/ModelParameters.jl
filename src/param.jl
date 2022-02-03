@@ -15,15 +15,17 @@ function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P <: Abst
     P.name.wrapper(fields)
 end
 
-@inline withunits(m, args...) = map(p -> withunits(p, args...), params(m))
+@inline withunits(x, args...; kw...) = map(p -> withunits(p, args...), params(x; kw...))
 @inline function withunits(p::AbstractParam, fn::Symbol=:val)
     _applyunits(*, getproperty(p, fn), get(p, :units, nothing))
 end
 
-@inline stripunits(m, xs) = map(stripunits, params(m), xs)
+@inline stripunits(x, xs; kw...) = map(stripunits, params(x; kw...), xs)
 @inline function stripunits(p::AbstractParam, x)
     _applyunits(/, x, get(p, :units, nothing))
 end
+
+setparent(m::P, newparent) where P<:AbstractParam = P.name.wrapper(newparent)
 
 # Param might have `nothing` for units
 @inline _applyunits(f, x, units) = f(x, units)
@@ -42,9 +44,11 @@ Base.values(p::AbstractParam) = values(parent(p))
 @inline Base.getproperty(p::AbstractParam, x::Symbol) = getproperty(parent(p), x)
 @inline Base.get(p::AbstractParam, key::Symbol, default) = get(parent(p), key, default)
 @inline Base.getindex(p::AbstractParam, i) = getindex(parent(p), i)
+Base.parent(p::AbstractParam) = getfield(p, :parent)
 
 
 # AbstractNumber interface
+
 Base.convert(::Type{Number}, x::AbstractParam) = AbstractNumbers.number(x)
 Base.convert(::Type{P}, x::P) where {P<:AbstractParam} = x
 AbstractNumbers.number(p::AbstractParam) = withunits(p)
@@ -79,15 +83,20 @@ end
 Param(val; kwargs...) = Param((; val=val, kwargs...))
 Param(; kwargs...) = Param((; kwargs...))
 
-Base.parent(p::Param) = getfield(p, :parent)
-
-# Methods for objects that hold params
-params(x) = Flatten.flatten(x, SELECT, IGNORE)
-stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), SELECT, IGNORE) : x
+params(x; select=SELECT, ignore=IGNORE) = Flatten.flatten(x, select, ignore)
+function stripparams(x; select=SELECT, ignore=IGNORE)
+    hasparam(x) ? Flatten.reconstruct(x, withunits(x), select, ignore) : x
+end
+function paramfieldnames(x; select=SELECT, ignore=IGNORE)
+    Flatten.fieldnameflatten(x, select, ignore)
+end
+function paramparenttypes(x; select=SELECT, ignore=IGNORE)
+    Flatten.metaflatten(x, _fieldparentbasetype, select, ignore)
+end
 
 
 # Utils
-hasparam(obj) = length(params(obj)) > 0
+hasparam(obj; kw...)  = length(params(obj; kw...)) > 0
 
 _checkhasval(nt::NamedTuple{Keys}) where {Keys} = first(Keys) == :val || _novalerror(nt)
 # @noinline avoids allocations unless there is actually an error

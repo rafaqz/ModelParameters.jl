@@ -246,3 +246,28 @@ end
     @test isa(tuplegroups.A.i, Tuple)
     @test isa(tuplegroups.B.j, Tuple)
 end
+
+struct FreeParam{T,P<:NamedTuple} <: AbstractParam{T}
+    parent::P
+end
+FreeParam(nt::NT) where {NT<:NamedTuple} = begin
+    ModelParameters._checkhasval(nt)
+    FreeParam{typeof(nt.val),NT}(nt)
+end
+FreeParam(val; kwargs...) = FreeParam((; val=val, kwargs...))
+FreeParam(; kwargs...) = FreeParam((; kwargs...))
+
+@testset "spefify param type" begin
+    sf = S2(
+        FreeParam(99),
+        FreeParam(7),
+        Param(100.0; bounds=(50.0, 150.0))
+    )
+    @test params(sf; select=FreeParam) == (FreeParam(99), FreeParam(7))
+    m = Model(sf)
+    @test m[:val, select=Param] == (100.0,)
+    @test getindex(m, :val; select=FreeParam) == (99, 7)
+    m[:bounds, select=FreeParam] = ((1, 100), (1, 10)) 
+    @test m[:bounds] == ((1, 100), (1, 10), (50.0, 150.0))
+end
+
