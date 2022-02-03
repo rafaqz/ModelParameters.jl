@@ -6,6 +6,7 @@ using Aqua,
       Test,
       Unitful
 
+import ModelParameters: component
 import BenchmarkTools
 
 @testset "param setproperties" begin
@@ -38,6 +39,11 @@ struct S2{H,I,J}
     i::I
     j::J
 end
+
+struct S3{K}
+    k::K
+end
+component(::Type{T}) where {T<:S3} = T
 
 s2 = S2(
     Param(99),
@@ -245,4 +251,10 @@ end
     @test isa(tuplegroups.B.f, Tuple)
     @test isa(tuplegroups.A.i, Tuple)
     @test isa(tuplegroups.B.j, Tuple)
+end
+
+@testset "custom component" begin
+    obj = S3(Param(1.0))
+    m = Model(obj)
+    @test m[:component] == (typeof(obj),)
 end
