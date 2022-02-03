@@ -42,6 +42,7 @@ Base.values(p::AbstractParam) = values(parent(p))
 @inline Base.getproperty(p::AbstractParam, x::Symbol) = getproperty(parent(p), x)
 @inline Base.get(p::AbstractParam, key::Symbol, default) = get(parent(p), key, default)
 @inline Base.getindex(p::AbstractParam, i) = getindex(parent(p), i)
+@inline Base.getindex(p::AbstractParam, i::Integer) = getindex(parent(p), i)
 
 
 # AbstractNumber interface

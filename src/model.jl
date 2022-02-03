@@ -82,19 +82,13 @@ abstract type AbstractModel end
 
 Base.parent(m::AbstractModel) = getfield(m, :parent)
 setparent(m::AbstractModel, newparent) = @set m.parent = newparent
+function setparent!(m::AbstractModel, newparent)
+    setfield!(m, :parent, newparent)
+    return m
+end
 
 params(m::AbstractModel) = params(parent(m))
 stripparams(m::AbstractModel) = stripparams(parent(m))
-function update(x::T, values) where {T<:AbstractModel} 
-    hasfield(T, :parent) || _updatenotdefined(T)
-    setparent(x, update(parent(x), values))
-end
-
-@noinline _update_methoderror(T) = error("Interface method `update` is not defined for $T")
-
-paramfieldnames(m) = Flatten.fieldnameflatten(parent(m), SELECT, IGNORE)
-paramparenttypes(m) = Flatten.metaflatten(parent(m), _fieldparentbasetype, SELECT, IGNORE)
-_fieldparentbasetype(T, ::Type{Val{N}}) where N = component(T)
 
 """
     component(::Type{T}) where T
@@ -104,18 +98,36 @@ implementation simply uses `T.name.wrapper` which is the `UnionAll` type corresp
 the unparameterized type name of `T`.
 """
 component(::Type{T}) where T = T.name.wrapper
+component(T, ::Type{Val{N}}) where N = component(T)
+paramfieldnames(m::AbstractModel) = Flatten.fieldnameflatten(parent(m), SELECT, IGNORE)
+paramcomponents(m::AbstractModel) = Flatten.metaflatten(parent(m), component, SELECT, IGNORE)
+
+function Base.show(io::IO, mime::MIME"text/plain", m::AbstractModel)
+    show(io, mime, typeof(m))
+    println(io, " with parent object of type: \n")
+    show(io, mime, typeof(parent(m)))
+    println(io, "\n\n")
+    printparams(io::IO, m)
+end
+printparams(m) = printparams(stdout, m)
+function printparams(io::IO, m::AbstractModel)
+    if length(m) > 0
+        println(io, "Parameters:")
+        PrettyTables.pretty_table(io, m; header=[keys(m)...])
+    end
+end
 
 # Tuple-like indexing and iterables interface
 
 # It may seem expensive always calling `param`, but flattening the
 # object occurs once at compile-time, and should have very little cost here.
+Base.IndexStyle(::Type{<:AbstractModel}) = IndexCartesian()
 Base.length(m::AbstractModel) = length(params(m))
-Base.size(m::AbstractModel) = (length(params(m)),)
+Base.size(m::AbstractModel) = (length(params(m)), length(keys(m)))
 Base.first(m::AbstractModel) = first(params(m))
 Base.last(m::AbstractModel) = last(params(m))
 Base.firstindex(m::AbstractModel) = 1
 Base.lastindex(m::AbstractModel) = length(params(m))
-Base.getindex(m::AbstractModel, i) = getindex(params(m), i)
 Base.iterate(m::AbstractModel) = (first(params(m)), 1)
 Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (params(m)[s], s + 1)
 
@@ -127,78 +139,96 @@ Base.Array(m::AbstractModel) = vec(m)
 # Dict methods - data as columns
 Base.haskey(m::AbstractModel, key::Symbol) = key in keys(m)
 Base.keys(m::AbstractModel) = _keys(params(m), m)
+_keys(params::Tuple, ::AbstractModel) = (:component, :fieldname, keys(first(params))...)
+_keys(::Tuple{}, ::AbstractModel) = ()
+_isreserved(key::Symbol) = key == :component || key == :fieldname
+@inline _indices(x::AbstractArray) = tuple(1:length(x)...)
+@inline @generated _indices(::T) where {T<:Tuple} = tuple(1:length(T.parameters)...)
 
-@inline function Base.setindex!(m::AbstractModel, x, nm::Symbol)
-    if nm == :component
-        erorr("cannot set :component index")
-    elseif nm == :fieldname
-        erorr("cannot set :fieldname index")
-    else
-        newparent = if nm in keys(m)
-            _setindex(parent(m), Tuple(x), nm)
-        else                                 
-            _addindex(parent(m), Tuple(x), nm)
-        end
-        setparent!(m, newparent)
+# Indexing kernels
+@inline _getindex(ps::Tuple{Vararg{<:Param}}, i) = _getindex(ps, i, :)
+@inline _getindex(ps::Tuple{Vararg{<:Param}}, col::Symbol) = _getindex(ps, :, col)
+@inline _getindex(ps::Tuple{Vararg{<:Param}}, i, ::Colon) = ps[i]
+@inline _getindex(ps::Tuple{Vararg{<:Param}}, i, col::Symbol) = map(p -> p[col], ps[i])
+@inline @generated _setindex(ps::Tuple{Vararg{<:Param}}, x, i::Integer, ::Type{Val{col}}) where col = :(@set ps[i].$col = x)
+@inline _setindex(obj, xs, ::Colon, cols::Union{Tuple,AbstractVector}) = _setindex(obj, xs, _indices(params(obj)), cols)
+@inline function _setindex(obj, x, i::Integer, ::Type{Val{col}}) where col
+    ps = params(obj)
+    newps = _setindex(ps, x, i, Val{col})
+    return Flatten.reconstruct(obj, newps, SELECT, IGNORE)
+end
+@inline function _setindex(obj, xs, ::Colon, ::Type{Val{col}}) where col
+    # handle special case for ::Colon (all indices) where we can be type stable
+    ps = params(obj)
+    newps = map(ps, _indices(ps)) do p, i
+        _setindex((p,), xs[i], 1, Val{col})[1]
     end
+    return Flatten.reconstruct(obj, newps, SELECT, IGNORE)
 end
-# TODO do this with lenses
-@inline function _setindex(obj, xs::Tuple, nm::Symbol)
-    lens = Setfield.PropertyLens{nm}()
-    newparams = map(params(obj), xs) do par, x
-        Param(Setfield.set(parent(par), lens, x))
+@inline function _setindex(obj, xs, idxs::Union{Tuple,AbstractVector}, ::Type{Val{col}}) where col
+    ps = params(obj)
+    for i in _indices(idxs)
+        ps = _setindex(ps, xs[i], idxs[i], Val{col})
     end
-    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
+    return Flatten.reconstruct(obj, ps, SELECT, IGNORE)
 end
-@inline function _addindex(obj, xs::Tuple, nm::Symbol)
-    newparams = map(params(obj), xs) do par, x
-        Param((; parent(par)..., (nm => x,)...))
-    end
-    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
-end
-
-_keys(params::Tuple, m::AbstractModel) = (:component, :fieldname, keys(first(params))...)
-_keys(params::Tuple{}, m::AbstractModel) = ()
-
-@inline function Base.getindex(m::AbstractModel, nm::Symbol)
-    if nm == :component
-        paramparenttypes(m)
-    elseif nm == :fieldname
-        paramfieldnames(m)
-    else
-        map(p -> getindex(p, nm), params(m))
-    end
-end
-
-function Base.show(io::IO, mime::MIME"text/plain", m::AbstractModel)
-    show(io, mime, typeof(m))
-    println(io, " with parent object of type: \n")
-    show(io, mime, typeof(parent(m)))
-    println(io, "\n\n")
-    printparams(io::IO, m)
-end
-
-printparams(m) = printparams(stdout, m)
-function printparams(io::IO, m::AbstractModel)
-    if length(m) > 0
-        println(io, "Parameters:")
-        PrettyTables.pretty_table(io, m, [keys(m)...])
-    end
-end
-
-setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
-
-update!(m::AbstractModel, vals::AbstractVector{<:AbstractParam}) = update!(m, Tuple(vals))
-function update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}})
-    setparent!(m, Flatten.reconstruct(parent(m), params, SELECT, IGNORE))
-end
-function update!(m::AbstractModel, table)
-    cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
+@inline function _setindex(obj, xs, idxs::Union{Tuple,AbstractVector}, cols::Union{Tuple,AbstractVector})
     for col in cols
-        setindex!(m, Tables.getcolumn(table, col), col)
+        for i in _indices(idxs)
+            obj = _setindex(obj, xs[i,col], idxs[i], Val{col})
+        end
     end
-    m
+    return obj
 end
+@inline function _addindex(obj, xs, ::Type{Val{col}}) where col
+    newparams = map(params(obj), xs) do p, x
+        Param((; parent(p)..., (col => x,)...))
+    end
+    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
+end
+
+# Indexing methods
+@inline Base.getindex(m::AbstractModel, col::Symbol) = getindex(m, :, col)
+@inline Base.getindex(m::AbstractModel, i) = getindex(m, i, :)
+@inline Base.getindex(m::AbstractModel, ::Colon, ::Colon) = m
+@inline function Base.getindex(m::AbstractModel, i, col)
+    return if col == :component
+        paramcomponents(m)[i]
+    elseif col == :fieldname
+        paramfieldnames(m)[i]
+    else
+        _getindex(params(m), i, col)
+    end
+end
+@inline Base.setindex(m::AbstractModel, xs, col::Union{Symbol,Type{<:Val}}) = Base.setindex(m, xs, :, col)
+@inline Base.setindex(m::AbstractModel, xs, i) = Base.setindex(m, xs, i, :)
+@inline Base.setindex(m::AbstractModel, xs, i, col::Symbol) = Base.setindex(m, xs, i, Val{col})
+@inline Base.setindex(m::AbstractModel, xs, i, ::Colon) = Base.setindex(m, xs, i, filter(!_isreserved, keys(m)))
+@inline Base.setindex(m::AbstractModel, xs, i, ::Type{Val{col}}) where col = _setindex(m, xs, i, Val{col})
+@inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Type{Val{col}}) where col = _setindex(m, xs, Tuple(i), Val{col})
+@inline Base.setindex(m::AbstractModel, xs, ::Colon, cols::Union{Tuple,AbstractVector}) = _setindex(m, xs, :, cols)
+@inline function Base.setindex(m::AbstractModel, xs, ::Colon, ::Type{Val{col}}) where col
+    @assert !_isreserved(col) "column name :$col is reserved and cannot be modified"
+    return if col ∈ keys(m)
+        _setindex(m, xs, :, Val{col})
+    else
+        _addindex(m, xs, Val{col})
+    end
+end
+@inline Base.setindex!(m::AbstractModel, xs, col::Union{Symbol,Type{Val}}) = setindex!(m, xs, :, col)
+@inline Base.setindex!(m::AbstractModel, xs, i) = setindex!(m, xs, i, :)
+@inline Base.setindex!(m::AbstractModel, xs, i, col) = setparent!(m, parent(Base.setindex(m, xs, i, col)))
+
+# Update (value)
+update(obj, xs::Union{AbstractVector,Tuple}, idx) = _setindex(obj, xs, idx, Val{:val})
+update(obj, xs::Union{AbstractVector,Tuple}) = update(obj, xs, :)
+update(m::AbstractModel, xs::Union{AbstractVector,Tuple}, idx=:) = Base.setindex(m, xs, idx, Val{:val})
+# Update (table)
+update(m::AbstractModel, table, idx=:) = Base.setindex(m, table, idx, filter(!_isreserved, Tables.columnnames(table)))
+# Update helpers
+update!(m::AbstractModel, xs, idx=:) = setparent!(m, parent(update(m, xs, idx)))
+update(rule, m::AbstractModel, xs) = update(m, xs, findall(Base.splat(rule), map(tuple, paramcomponents(m), paramfieldnames(m), params(m))))
+update!(rule, m::AbstractModel, xs) = setparent!(m, parent(update(rule, m, xs)))
 
 """
     Model(x)
@@ -227,30 +257,6 @@ mutable struct Model <: AbstractModel
 end
 Model(m::AbstractModel) = Model(parent(m))
 
-@inline @generated function _update_params(ps::P, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
-    expr = Expr(:tuple)
-    for i in 1:N
-        expr_i = :(Param(NamedTuple{keys(ps[$i])}((values[$i], Base.tail(parent(ps[$i]))...))))
-        push!(expr.args, expr_i)
-    end
-    return expr
-end
-
-update(x, values) = _update(ModelParameters.params(x), x, values)
-@inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
-    @assert length(values) == N "values length must match the number of parameters"
-    newparams = _update_params(p, values)
-    Flatten.reconstruct(x, newparams, SELECT, IGNORE)
-end
-@inline function _update(p::P, x, table) where {N,P<:NTuple{N,Param}}
-    @assert size(table, 1) == N "number of rows must match the number of parameters"
-    cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
-    newparams = map(p, tuple(1:N...)) do param, i
-        Param(NamedTuple{keys(param)}(map(name -> Tables.getcolumn(table, name)[i], cols)))
-    end
-    Flatten.reconstruct(x, newparams, SELECT, IGNORE)
-end
-
 """
     StaticModel(x)
 
@@ -275,7 +281,6 @@ StaticModel(m::AbstractModel) = StaticModel(parent(m))
 
 # Model Utils
 
-_expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), SELECT, IGNORE)
 # Expand all Params to have the same keys, filling with `nothing`
 # This probably will allocate due to `union` returning `Vector`
 function _expandkeys(x)
