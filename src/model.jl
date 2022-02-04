@@ -246,9 +246,7 @@ end
     @assert size(table, 1) == N "number of rows must match the number of parameters"
     cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
     newparams = map(p, tuple(1:N...)) do param, i
-        let names = keys(param);
-            Param(NamedTuple{names}(map(name -> Tables.getcolumn(table, name)[i], cols)))
-        end
+        Param(NamedTuple{keys(param)}(map(name -> Tables.getcolumn(table, name)[i], cols)))
     end
     Flatten.reconstruct(x, newparams, SELECT, IGNORE)
 end
