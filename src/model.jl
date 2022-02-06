@@ -225,15 +225,15 @@ end
 @inline Base.setindex!(m::AbstractModel, xs, i, col) = setparent!(m, parent(Base.setindex(m, xs, i, col)))
 
 # helper function for evaluating indexing predicates
-_indices(m, rule) = findall(map(rule, map((c, n, p) -> setparent(p, (; parent(p)..., :component => c, :fieldname => n)), paramcomponents(m), paramfieldnames(m), params(m))))
-_indices(::Any, ::Nothing) = Colon()
+@inline _indices(m, rule) = findall(map(rule, map((c, n, p) -> setparent(p, (; parent(p)..., :component => c, :fieldname => n)), paramcomponents(m), paramfieldnames(m), params(m))))
+@inline _indices(::Any, ::Nothing) = Colon()
 
 # Update (value)
 """
     update(obj, xs::Union{AbstractVector,Tuple}, rule=nothing)
 
-Updates the `val` field of `Param`s at `idx` in `obj` with the values in `xs`. Type stable and
-allocation free when `idx=:`.
+Updates the `val` field of `Param`s at rows selected by `rule` in `obj` with the values in `xs`. Type stable and
+allocation free when all rows are selected (i.e. `rule=nothing`).
 """
 update(obj, xs::Union{AbstractVector,Tuple}, rule=nothing) = _setindex(obj, xs, _indices(obj, rule), Val{:val})
 update(m::AbstractModel, xs::Union{AbstractVector,Tuple}, rule=nothing) = Base.setindex(m, xs, _indices(m, rule), Val{:val})
@@ -241,7 +241,7 @@ update(m::AbstractModel, xs::Union{AbstractVector,Tuple}, rule=nothing) = Base.s
 """
     update(m::AbstractModel, table, rule=nothing)
 
-Updates the columns of `Param`s at rows `idx` in `m` with the values in `table`, which must implement
+Updates the columns of `Param`s at rows selected by `rule` in `m` with the values in `table`, which must implement
 the `Tables.jl` interface.
 """
 update(m::AbstractModel, table, rule=nothing) = Base.setindex(m, table, _indices(m, rule), filter(!_isreserved, Tables.columnnames(table)))
