@@ -235,8 +235,8 @@ end
 Updates the `val` field of `Param`s at rows selected by `rule` in `obj` with the values in `xs`. Type stable and
 allocation free when all rows are selected (i.e. `rule=nothing`).
 """
-update(obj, xs::Union{AbstractVector,Tuple}, rule=nothing) = _setindex(obj, xs, _indices(obj, rule), Val{:val})
-update(m::AbstractModel, xs::Union{AbstractVector,Tuple}, rule=nothing) = Base.setindex(m, xs, _indices(m, rule), Val{:val})
+@inline update(obj, xs::Union{AbstractVector,Tuple}, rule=nothing) = _setindex(obj, xs, _indices(obj, rule), Val{:val})
+@inline update(m::AbstractModel, xs::Union{AbstractVector,Tuple}, rule=nothing) = Base.setindex(m, xs, _indices(m, rule), Val{:val})
 # Update (table)
 """
     update(m::AbstractModel, table, rule=nothing)
@@ -244,14 +244,14 @@ update(m::AbstractModel, xs::Union{AbstractVector,Tuple}, rule=nothing) = Base.s
 Updates the columns of `Param`s at rows selected by `rule` in `m` with the values in `table`, which must implement
 the `Tables.jl` interface.
 """
-update(m::AbstractModel, table, rule=nothing) = Base.setindex(m, table, _indices(m, rule), filter(!_isreserved, Tables.columnnames(table)))
+@inline update(m::AbstractModel, table, rule=nothing) = Base.setindex(m, table, _indices(m, rule), filter(!_isreserved, Tables.columnnames(table)))
 # Update helpers
 """
     update!(m::AbstractModel, xs, rule=nothing)
 
 Mutating version of `update` which sets the parent of `m` to the updated value.
 """
-update!(m::AbstractModel, xs, rule=nothing) = setparent!(m, parent(update(m, xs, rule)))
+@inline update!(m::AbstractModel, xs, rule=nothing) = setparent!(m, parent(update(m, xs, rule)))
 """
     update(f, m::AbstractModel, rule=nothing)
     update!(f, m::AbstractModel, rule=nothing)
