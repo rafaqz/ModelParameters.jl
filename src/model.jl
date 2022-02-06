@@ -130,6 +130,8 @@ Base.firstindex(m::AbstractModel) = 1
 Base.lastindex(m::AbstractModel) = length(params(m))
 Base.iterate(m::AbstractModel) = (first(params(m)), 1)
 Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (params(m)[s], s + 1)
+Base.eachcol(m::AbstractModel) = (m[col] for col in keys(m))
+Base.eachrow(m::AbstractModel) = m
 
 # Vector methods
 Base.collect(m::AbstractModel) = collect(m.val)
@@ -142,16 +144,18 @@ Base.keys(m::AbstractModel) = _keys(params(m), m)
 _keys(params::Tuple, ::AbstractModel) = (:component, :fieldname, keys(first(params))...)
 _keys(::Tuple{}, ::AbstractModel) = ()
 _isreserved(key::Symbol) = key == :component || key == :fieldname
-@inline _indices(x::AbstractArray) = tuple(1:length(x)...)
-@inline @generated _indices(::T) where {T<:Tuple} = tuple(1:length(T.parameters)...)
+@inline _enumerate(tup::NTuple{N,Any}) where N = map(tuple, tuple(1:N...), tup) # type stable tuple enumeration
 
 # Indexing kernels
 @inline _getindex(ps::Tuple{Vararg{<:Param}}, i) = _getindex(ps, i, :)
 @inline _getindex(ps::Tuple{Vararg{<:Param}}, col::Symbol) = _getindex(ps, :, col)
 @inline _getindex(ps::Tuple{Vararg{<:Param}}, i, ::Colon) = ps[i]
 @inline _getindex(ps::Tuple{Vararg{<:Param}}, i, col::Symbol) = map(p -> p[col], ps[i])
+@inline _getindex(ps::Tuple{Vararg{<:Param}}, i::AbstractVector{Bool}, col::Symbol) = _getindex(ps, findall(i), col)
+@inline _setindex(obj, xs, ::Colon, cols) = _setindex(obj, xs, 1:length(params(obj)), cols)
+@inline _setindex(obj, xs, idxs::AbstractVector{Bool}, cols::AbstractVector) = _setindex(obj, xs, findall(idxs), cols)
+@inline _setindex(obj, xs, idxs::AbstractVector{Bool}, ::Type{Val{col}}) where col = _setindex(obj, xs, findall(idxs), Val{col})
 @inline @generated _setindex(ps::Tuple{Vararg{<:Param}}, x, i::Integer, ::Type{Val{col}}) where col = :(@set ps[i].$col = x)
-@inline _setindex(obj, xs, ::Colon, cols::Union{Tuple,AbstractVector}) = _setindex(obj, xs, _indices(params(obj)), cols)
 @inline function _setindex(obj, x, i::Integer, ::Type{Val{col}}) where col
     ps = params(obj)
     newps = _setindex(ps, x, i, Val{col})
@@ -160,34 +164,26 @@ end
 @inline function _setindex(obj, xs, ::Colon, ::Type{Val{col}}) where col
     # handle special case for ::Colon (all indices) where we can be type stable
     ps = params(obj)
-    newps = map(ps, _indices(ps)) do p, i
+    newps = map(_enumerate(ps)) do (i,p)
         _setindex((p,), xs[i], 1, Val{col})[1]
     end
     return Flatten.reconstruct(obj, newps, SELECT, IGNORE)
 end
-@inline function _setindex(obj, xs, idxs::Union{Tuple,AbstractVector}, ::Type{Val{col}}) where col
+@inline function _setindex(obj, xs, idxs::AbstractVector, ::Type{Val{col}}) where col
     ps = params(obj)
-    for i in _indices(idxs)
+    for i in 1:length(idxs)
         ps = _setindex(ps, xs[i], idxs[i], Val{col})
     end
     return Flatten.reconstruct(obj, ps, SELECT, IGNORE)
 end
-@inline function _setindex(obj, xs, idxs::Union{Tuple,AbstractVector}, cols::Union{Tuple,AbstractVector})
-    for col in cols
-        for i in _indices(idxs)
-            obj = _setindex(obj, xs[i,col], idxs[i], Val{col})
-        end
-    end
-    return obj
-end
 @inline function _addindex(obj, xs, ::Type{Val{col}}) where col
     newparams = map(params(obj), xs) do p, x
-        Param((; parent(p)..., (col => x,)...))
+        Param((; parent(p)..., col => x))
     end
     Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
 end
 
-# Indexing methods
+# Indexing interface
 @inline Base.getindex(m::AbstractModel, col::Symbol) = getindex(m, :, col)
 @inline Base.getindex(m::AbstractModel, i) = getindex(m, i, :)
 @inline Base.getindex(m::AbstractModel, ::Colon, ::Colon) = m
@@ -203,10 +199,19 @@ end
 @inline Base.setindex(m::AbstractModel, xs, col::Union{Symbol,Type{<:Val}}) = Base.setindex(m, xs, :, col)
 @inline Base.setindex(m::AbstractModel, xs, i) = Base.setindex(m, xs, i, :)
 @inline Base.setindex(m::AbstractModel, xs, i, col::Symbol) = Base.setindex(m, xs, i, Val{col})
-@inline Base.setindex(m::AbstractModel, xs, i, ::Colon) = Base.setindex(m, xs, i, filter(!_isreserved, keys(m)))
-@inline Base.setindex(m::AbstractModel, xs, i, ::Type{Val{col}}) where col = _setindex(m, xs, i, Val{col})
-@inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Type{Val{col}}) where col = _setindex(m, xs, Tuple(i), Val{col})
-@inline Base.setindex(m::AbstractModel, xs, ::Colon, cols::Union{Tuple,AbstractVector}) = _setindex(m, xs, :, cols)
+@inline Base.setindex(m::AbstractModel, xs, i, ::Type{Val{col}}) where col = Base.setindex(m, xs, collect(i), Val{col})
+@inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Type{Val{col}}) where col = Base.setindex(m, xs, [i], Val{col})
+@inline function Base.setindex(m::AbstractModel, xs, i, cols::Union{Tuple,AbstractVector})
+    for col in cols
+        m = Base.setindex(m, Tables.getcolumn(xs, col), i, Val{col})
+    end
+    return m
+end
+@inline function Base.setindex(m::AbstractModel, xs, i::AbstractVector, ::Type{Val{col}}) where col
+    @assert !_isreserved(col) "column name :$col is reserved and cannot be modified"
+    @assert col ∈ keys(m) "column $col does not exist"
+    return _setindex(m, xs, i, Val{col})
+end
 @inline function Base.setindex(m::AbstractModel, xs, ::Colon, ::Type{Val{col}}) where col
     @assert !_isreserved(col) "column name :$col is reserved and cannot be modified"
     return if col ∈ keys(m)
@@ -219,16 +224,52 @@ end
 @inline Base.setindex!(m::AbstractModel, xs, i) = setindex!(m, xs, i, :)
 @inline Base.setindex!(m::AbstractModel, xs, i, col) = setparent!(m, parent(Base.setindex(m, xs, i, col)))
 
+# helper function for evaluating indexing predicates
+_indices(m, rule) = findall(map(rule, map((c, n, p) -> setparent(p, (; parent(p)..., :component => c, :fieldname => n)), paramcomponents(m), paramfieldnames(m), params(m))))
+_indices(::Any, ::Nothing) = Colon()
+
 # Update (value)
-update(obj, xs::Union{AbstractVector,Tuple}, idx) = _setindex(obj, xs, idx, Val{:val})
-update(obj, xs::Union{AbstractVector,Tuple}) = update(obj, xs, :)
-update(m::AbstractModel, xs::Union{AbstractVector,Tuple}, idx=:) = Base.setindex(m, xs, idx, Val{:val})
+"""
+    update(obj, xs::Union{AbstractVector,Tuple}, rule=nothing)
+
+Updates the `val` field of `Param`s at `idx` in `obj` with the values in `xs`. Type stable and
+allocation free when `idx=:`.
+"""
+update(obj, xs::Union{AbstractVector,Tuple}, rule=nothing) = _setindex(obj, xs, _indices(obj, rule), Val{:val})
+update(m::AbstractModel, xs::Union{AbstractVector,Tuple}, rule=nothing) = Base.setindex(m, xs, _indices(m, rule), Val{:val})
 # Update (table)
-update(m::AbstractModel, table, idx=:) = Base.setindex(m, table, idx, filter(!_isreserved, Tables.columnnames(table)))
+"""
+    update(m::AbstractModel, table, rule=nothing)
+
+Updates the columns of `Param`s at rows `idx` in `m` with the values in `table`, which must implement
+the `Tables.jl` interface.
+"""
+update(m::AbstractModel, table, rule=nothing) = Base.setindex(m, table, _indices(m, rule), filter(!_isreserved, Tables.columnnames(table)))
 # Update helpers
-update!(m::AbstractModel, xs, idx=:) = setparent!(m, parent(update(m, xs, idx)))
-update(rule, m::AbstractModel, xs) = update(m, xs, findall(Base.splat(rule), map(tuple, paramcomponents(m), paramfieldnames(m), params(m))))
-update!(rule, m::AbstractModel, xs) = setparent!(m, parent(update(rule, m, xs)))
+"""
+    update!(m::AbstractModel, xs, rule=nothing)
+
+Mutating version of `update` which sets the parent of `m` to the updated value.
+"""
+update!(m::AbstractModel, xs, rule=nothing) = setparent!(m, parent(update(m, xs, rule)))
+"""
+    update(f, m::AbstractModel, rule=nothing)
+    update!(f, m::AbstractModel, rule=nothing)
+
+Updates `Param`s in `m` matching the predicate `rule` with values produced by function `f`.
+`rule` should be a function of the form `rule(::Param)::Bool` and `f` should have the
+form `f(::Param)::T` where `T` is a vector of values or table.
+"""
+update!(f, m::AbstractModel, rule=nothing) = setparent!(m, parent(update(f, m, rule)))
+function update(f, m::AbstractModel, rule=nothing)
+    # case 1: use :val field for 1-D vector
+    astable(xs::AbstractVector{<:Number}) = Tables.table(xs; header=[:val])
+    astable(xs) = Tables.columns(xs)
+    ps = params(m)
+    idxs = _indices(m, rule)
+    xs = astable(reduce(vcat, map(f, ps[idxs])))
+    return Base.setindex(m, xs, idxs, Tables.columnnames(xs))
+end
 
 """
     Model(x)
@@ -236,7 +277,7 @@ update!(rule, m::AbstractModel, xs) = setparent!(m, parent(update(rule, m, xs)))
 A wrapper type for any model containing [`Param`](@ref) parameters - essentially marking 
 that a custom struct or Tuple holds `Param` fields.
 
-This allows you to index into the model as if it is a linear list of parameters, or named 
+This allows you to index into the model as if it is a linear lisat of parameters, or named 
 columns of values and paramiter metadata. You can treat it as an iterable, or use the 
 Tables.jl interface to save or update the model to/from csv, a `DataFrame` or any source 
 that implements the Tables.jl interface.

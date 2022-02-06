@@ -83,10 +83,24 @@ end
 
 @testset "setindex updates and adds param fields" begin
     m = Model(s1)
+    # set all rows
     m[:val] = m[:val] .* 2
     @test m[:val] == (2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 198, 200.0)
+    # set single row
+    m[1,:val] = m[1,:val]*2
+    @test m[1,:val] == 4.0
+    # set multiple rows
+    m[[1,3,5],:val] = m[[1,3,5],:val].*2
+    @test m[[1,3,5],:val] == (8.0, 12.0, 20.0)
+    # add new column
     m[:newfield] = ntuple(x -> x, 8)
     @test m[:newfield] == ntuple(x -> x, 8)
+    # test colon syntax
+    m[:,:newfield] = ntuple(x -> x, 8)
+    @test m[:,:newfield] == ntuple(x -> x, 8)
+    @test m[:,:val] == m[:val]
+    @test m[1,:] == m[1]
+    @test m[:,:] == m
 end
 
 @testset "show" begin
@@ -175,6 +189,23 @@ end
     @test params(s2) === (Param(99), Param(100.0), Param(200.0))
     s2[:val] = s2[:val] .+ 1.0
     @test params(s2) === (Param(100.0), Param(101.0), Param(201.0))
+end
+
+@testset "selective update" begin
+    m = Model(s1)
+    update!(m, [-1.0,-1.0], p -> p.fieldname == :b || p.fieldname == :d)
+    @test m[:val] == (1.0,-1.0,3.0,-1.0,5.0,6.0,99,100.0)
+    m = Model(s1)
+    update!(m, p -> p.component <: S1) do p
+        p.val*2.0
+    end
+    @test m[:val] == (2.0,4.0,6.0,8.0,5.0,6.0,99,100.0)
+    m = Model(s1)
+    update!(m, p -> p.component <: S1) do p
+        (val=p.val*2.0, bounds=(-Inf,Inf))
+    end
+    @test m[:val] == (2.0,4.0,6.0,8.0,5.0,6.0,99,100.0)
+    @test m[:bounds] == ((-Inf, Inf), (-Inf, Inf), (-Inf, Inf), (-Inf, Inf), (5.0, 15.0), (5.0, 15.0), nothing, (50.0, 150.0))
 end
 
 @testset "type stable update" begin
