@@ -226,8 +226,11 @@ end
     ps = collect(m[:val]).*2.0
     new_s2 = @inferred update(s2, ps)
     @test all(Model(new_s2)[:val] .== ps)
-    b = BenchmarkTools.@benchmark update($s2, $ps)
-    @test b.allocs == 0
+    if VERSION >= v"1.6"
+        # will allocate on Julia versions <1.6
+        b = BenchmarkTools.@benchmark update($s2, $ps)
+        @test b.allocs == 0
+    end
 end
 
 @testset "parameter grouping" begin
