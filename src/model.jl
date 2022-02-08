@@ -128,13 +128,13 @@ Base.first(m::AbstractModel) = first(params(m))
 Base.last(m::AbstractModel) = last(params(m))
 Base.firstindex(m::AbstractModel) = 1
 Base.lastindex(m::AbstractModel) = length(params(m))
-Base.iterate(m::AbstractModel) = (first(params(m)), 1)
+Base.iterate(m::AbstractModel) = (first(params(m)), 2)
 Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (params(m)[s], s + 1)
 Base.eachcol(m::AbstractModel) = (m[col] for col in keys(m))
 Base.eachrow(m::AbstractModel) = m
 
 # Vector methods
-Base.collect(m::AbstractModel) = collect(m.val)
+Base.collect(m::AbstractModel) = collect(m[:val])
 Base.vec(m::AbstractModel) = collect(m)
 Base.Array(m::AbstractModel) = vec(m)
 
@@ -200,7 +200,9 @@ end
 @inline Base.setindex(m::AbstractModel, xs, i) = Base.setindex(m, xs, i, :)
 @inline Base.setindex(m::AbstractModel, xs, i, col::Symbol) = Base.setindex(m, xs, i, Val{col})
 @inline Base.setindex(m::AbstractModel, xs, i, ::Type{Val{col}}) where col = Base.setindex(m, xs, collect(i), Val{col})
-@inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Type{Val{col}}) where col = Base.setindex(m, xs, [i], Val{col})
+@inline Base.setindex(m::AbstractModel, xs, i, ::Colon) = Base.setindex(m, xs, collect(i), filter(!_isreserved, keys(m)))
+@inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Colon) = Base.setindex(m, xs, i, filter(!_isreserved, keys(m)))
+@inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Type{Val{col}}) where col = _setindex(m, xs, i, Val{col})
 @inline function Base.setindex(m::AbstractModel, xs, i, cols::Union{Tuple,AbstractVector})
     for col in cols
         m = Base.setindex(m, Tables.getcolumn(xs, col), i, Val{col})

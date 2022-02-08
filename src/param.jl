@@ -87,7 +87,6 @@ Base.parent(p::Param) = getfield(p, :parent)
 # Methods for objects that hold params
 params(x) = Flatten.flatten(x, SELECT, IGNORE)
 stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), SELECT, IGNORE) : x
-
 # Utils
 hasparam(obj) = length(params(obj)) > 0
 

@@ -81,6 +81,13 @@ end
                        (5.0, 15.0), (5.0, 15.0), nothing, (50.0, 150.0))
 end
 
+@testset "iterables interface" begin
+    m = Model(s1)
+    @test tuple(m...) == tuple((m[i] for i in 1:length(m))...)
+    @test collect(eachrow(m)) == [m[i] for i in 1:length(m)]
+    @test collect(eachcol(m)) == [m[col] for col in keys(m)]
+end
+
 @testset "setindex updates and adds param fields" begin
     m = Model(s1)
     # set all rows
@@ -89,9 +96,12 @@ end
     # set single row
     m[1,:val] = m[1,:val]*2
     @test m[1,:val] == 4.0
+    m[1] = m[2]
+    @test m[1] == m[2]
     # set multiple rows
+    m = Model(s1)
     m[[1,3,5],:val] = m[[1,3,5],:val].*2
-    @test m[[1,3,5],:val] == (8.0, 12.0, 20.0)
+    @test m[[1,3,5],:val] == (2.0, 6.0, 10.0)
     # add new column
     m[:newfield] = ntuple(x -> x, 8)
     @test m[:newfield] == ntuple(x -> x, 8)
@@ -101,6 +111,10 @@ end
     @test m[:,:val] == m[:val]
     @test m[1,:] == m[1]
     @test m[:,:] == m
+    # test extra immutable cases
+    m = Model(s1)
+    @test Base.setindex(m, m[:val].*2, :val)[:val] == m[:val].*2
+    @test Base.setindex(m, m[2], 1)[1] == m[2]
 end
 
 @testset "show" begin
