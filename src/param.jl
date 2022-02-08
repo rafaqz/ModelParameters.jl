@@ -80,7 +80,7 @@ end
 Param(val; kwargs...) = Param((; val=val, kwargs...))
 Param(; kwargs...) = Param((; kwargs...))
 
-setparent(::P, newparent) where P<:AbstractParam = P.name.wrapper(newparent)
+setparent(::P, newparent) where P<:AbstractParam = ConstructionBase.constructorof(P)(newparent)
 
 Base.parent(p::Param) = getfield(p, :parent)
 
