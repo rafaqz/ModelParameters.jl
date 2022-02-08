@@ -147,10 +147,11 @@ _isreserved(key::Symbol) = key == :component || key == :fieldname
 @inline _enumerate(tup::NTuple{N,Any}) where N = map(tuple, tuple(1:N...), tup) # type stable tuple enumeration
 
 # Indexing kernels
-@inline _getindex(ps::Tuple{Vararg{<:Param}}, i) = _getindex(ps, i, :)
+const RowIndexer = Union{Integer,Colon,AbstractVector{<:Integer}}
+@inline _getindex(ps::Tuple{Vararg{<:Param}}, i::RowIndexer) = _getindex(ps, i, :)
 @inline _getindex(ps::Tuple{Vararg{<:Param}}, col::Symbol) = _getindex(ps, :, col)
-@inline _getindex(ps::Tuple{Vararg{<:Param}}, i, ::Colon) = ps[i]
-@inline _getindex(ps::Tuple{Vararg{<:Param}}, i, col::Symbol) = map(p -> p[col], ps[i])
+@inline _getindex(ps::Tuple{Vararg{<:Param}}, i::RowIndexer, ::Colon) = ps[i]
+@inline _getindex(ps::Tuple{Vararg{<:Param}}, i::RowIndexer, col::Symbol) = map(p -> p[col], ps[i])
 @inline _getindex(ps::Tuple{Vararg{<:Param}}, i::AbstractVector{Bool}, col::Symbol) = _getindex(ps, findall(i), col)
 @inline _setindex(obj, xs, ::Colon, cols) = _setindex(obj, xs, 1:length(params(obj)), cols)
 @inline _setindex(obj, xs, idxs::AbstractVector{Bool}, cols::AbstractVector) = _setindex(obj, xs, findall(idxs), cols)
@@ -169,7 +170,7 @@ end
     end
     return Flatten.reconstruct(obj, newps, SELECT, IGNORE)
 end
-@inline function _setindex(obj, xs, idxs::AbstractVector, ::Type{Val{col}}) where col
+@inline function _setindex(obj, xs, idxs::AbstractVector{<:Integer}, ::Type{Val{col}}) where col
     ps = params(obj)
     for i in 1:length(idxs)
         ps = _setindex(ps, xs[i], idxs[i], Val{col})
@@ -185,9 +186,9 @@ end
 
 # Indexing interface
 @inline Base.getindex(m::AbstractModel, col::Symbol) = getindex(m, :, col)
-@inline Base.getindex(m::AbstractModel, i) = getindex(m, i, :)
+@inline Base.getindex(m::AbstractModel, i::RowIndexer) = getindex(m, i, :)
 @inline Base.getindex(m::AbstractModel, ::Colon, ::Colon) = m
-@inline function Base.getindex(m::AbstractModel, i, col)
+@inline function Base.getindex(m::AbstractModel, i::RowIndexer, col)
     return if col == :component
         paramcomponents(m)[i]
     elseif col == :fieldname
@@ -197,19 +198,19 @@ end
     end
 end
 @inline Base.setindex(m::AbstractModel, xs, col::Union{Symbol,Type{<:Val}}) = Base.setindex(m, xs, :, col)
-@inline Base.setindex(m::AbstractModel, xs, i) = Base.setindex(m, xs, i, :)
-@inline Base.setindex(m::AbstractModel, xs, i, col::Symbol) = Base.setindex(m, xs, i, Val{col})
-@inline Base.setindex(m::AbstractModel, xs, i, ::Type{Val{col}}) where col = Base.setindex(m, xs, collect(i), Val{col})
-@inline Base.setindex(m::AbstractModel, xs, i, ::Colon) = Base.setindex(m, xs, collect(i), filter(!_isreserved, keys(m)))
+@inline Base.setindex(m::AbstractModel, xs, i::RowIndexer) = Base.setindex(m, xs, i, :)
+@inline Base.setindex(m::AbstractModel, xs, i::RowIndexer, col::Symbol) = Base.setindex(m, xs, i, Val{col})
+@inline Base.setindex(m::AbstractModel, xs, i::RowIndexer, ::Type{Val{col}}) where col = Base.setindex(m, xs, collect(i), Val{col})
+@inline Base.setindex(m::AbstractModel, xs, i::RowIndexer, ::Colon) = Base.setindex(m, xs, collect(i), filter(!_isreserved, keys(m)))
 @inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Colon) = Base.setindex(m, xs, i, filter(!_isreserved, keys(m)))
 @inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Type{Val{col}}) where col = _setindex(m, xs, i, Val{col})
-@inline function Base.setindex(m::AbstractModel, xs, i, cols::Union{Tuple,AbstractVector})
+@inline function Base.setindex(m::AbstractModel, xs, i::RowIndexer, cols::Union{Tuple,AbstractVector})
     for col in cols
         m = Base.setindex(m, Tables.getcolumn(xs, col), i, Val{col})
     end
     return m
 end
-@inline function Base.setindex(m::AbstractModel, xs, i::AbstractVector, ::Type{Val{col}}) where col
+@inline function Base.setindex(m::AbstractModel, xs, i::AbstractVector{<:Integer}, ::Type{Val{col}}) where col
     @assert !_isreserved(col) "column name :$col is reserved and cannot be modified"
     @assert col ∈ keys(m) "column $col does not exist"
     return _setindex(m, xs, i, Val{col})
@@ -223,8 +224,8 @@ end
     end
 end
 @inline Base.setindex!(m::AbstractModel, xs, col::Union{Symbol,Type{Val}}) = setindex!(m, xs, :, col)
-@inline Base.setindex!(m::AbstractModel, xs, i) = setindex!(m, xs, i, :)
-@inline Base.setindex!(m::AbstractModel, xs, i, col) = setparent!(m, parent(Base.setindex(m, xs, i, col)))
+@inline Base.setindex!(m::AbstractModel, xs, i::RowIndexer) = setindex!(m, xs, i, :)
+@inline Base.setindex!(m::AbstractModel, xs, i::RowIndexer, col) = setparent!(m, parent(Base.setindex(m, xs, i, col)))
 
 # helper function for evaluating indexing predicates
 @inline _indices(m, rule) = findall(map(rule, map((c, n, p) -> setparent(p, (; parent(p)..., :component => c, :fieldname => n)), paramcomponents(m), paramfieldnames(m), params(m))))
