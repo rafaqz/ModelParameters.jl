@@ -205,10 +205,9 @@ end
 @inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Colon) = Base.setindex(m, xs, i, filter(!_isreserved, keys(m)))
 @inline Base.setindex(m::AbstractModel, xs, i::Integer, ::Type{Val{col}}) where col = _setindex(m, xs, i, Val{col})
 @inline function Base.setindex(m::AbstractModel, xs, i::RowIndexer, cols::Union{Tuple,AbstractVector})
-    for col in cols
-        m = Base.setindex(m, Tables.getcolumn(xs, col), i, Val{col})
+    return foldl(cols; init=m) do m, col
+        Base.setindex(m, Tables.getcolumn(xs, col), i, col)
     end
-    return m
 end
 @inline function Base.setindex(m::AbstractModel, xs, i::AbstractVector{<:Integer}, ::Type{Val{col}}) where col
     @assert !_isreserved(col) "column name :$col is reserved and cannot be modified"
