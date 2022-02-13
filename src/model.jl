@@ -269,7 +269,7 @@ function update(f, m::AbstractModel, rule=nothing)
     astable(xs) = Tables.columns(xs)
     ps = params(m)
     idxs = _indices(m, rule)
-    xs = astable(reduce(vcat, map(f, ps[idxs])))
+    xs = astable(collect(map(f, ps[idxs])))
     return Base.setindex(m, xs, idxs, Tables.columnnames(xs))
 end
 
