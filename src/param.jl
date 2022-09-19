@@ -42,6 +42,7 @@ Base.values(p::AbstractParam) = values(parent(p))
 @inline Base.getproperty(p::AbstractParam, x::Symbol) = getproperty(parent(p), x)
 @inline Base.get(p::AbstractParam, key::Symbol, default) = get(parent(p), key, default)
 @inline Base.getindex(p::AbstractParam, i) = getindex(parent(p), i)
+@inline Base.getindex(p::AbstractParam, i::Integer) = getindex(parent(p), i)
 
 
 # AbstractNumber interface
@@ -79,13 +80,13 @@ end
 Param(val; kwargs...) = Param((; val=val, kwargs...))
 Param(; kwargs...) = Param((; kwargs...))
 
+setparent(::P, newparent) where P<:AbstractParam = ConstructionBase.constructorof(P)(newparent)
+
 Base.parent(p::Param) = getfield(p, :parent)
 
 # Methods for objects that hold params
 params(x) = Flatten.flatten(x, SELECT, IGNORE)
 stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), SELECT, IGNORE) : x
-
-
 # Utils
 hasparam(obj) = length(params(obj)) > 0
 
