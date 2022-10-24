@@ -1,7 +1,7 @@
 name = "ModelParameters"
 uuid = "4744a3fa-6c31-4707-899e-a3298e4618ad"
 authors = ["Rafael Schouten <rafaelschouten@gmail.com> and contributors"]
-version = "0.3.5"
+version = "0.3.6"
 
 [deps]
 AbstractNumbers = "85c772de-338a-5e7f-b815-41e76c26ac1f"
@@ -18,7 +18,7 @@ ConstructionBase = "1"
 ConstructionBaseExtras = "0.1"
 Flatten = "0.4"
 PrettyTables = "0.8, 0.9, 0.10, 0.11, 0.12, 1, 2"
-Setfield = "0.6, 0.7, 0.8"
+Setfield = "0.6, 0.7, 0.8, 1"
 Tables = "1"
 julia = "1"
 
