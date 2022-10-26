@@ -85,7 +85,7 @@ setparent(m::AbstractModel, newparent) = @set m.parent = newparent
 
 params(m::AbstractModel) = params(parent(m))
 stripparams(m::AbstractModel) = stripparams(parent(m))
-function update(x::T, values) where {T<:AbstractModel} 
+function update(x::T, values) where {T<:AbstractModel}
     hasfield(T, :parent) || _updatenotdefined(T)
     setparent(x, update(parent(x), values))
 end
@@ -94,7 +94,7 @@ end
 
 paramfieldnames(m) = Flatten.fieldnameflatten(parent(m), SELECT, IGNORE)
 paramparenttypes(m) = Flatten.metaflatten(parent(m), _fieldparentbasetype, SELECT, IGNORE)
-_fieldparentbasetype(T, ::Type{Val{N}}) where N = component(T)
+_fieldparentbasetype(T, ::Type{Val{N}}) where {N} = component(T)
 
 """
     component(::Type{T}) where T
@@ -103,7 +103,7 @@ Generates the identifier stored in the :component field of an `AbstractModel`. T
 implementation simply uses `T.name.wrapper` which is the `UnionAll` type corresponding to
 the unparameterized type name of `T`.
 """
-component(::Type{T}) where T = T.name.wrapper
+component(::Type{T}) where {T} = T.name.wrapper
 
 # Tuple-like indexing and iterables interface
 
@@ -136,7 +136,7 @@ Base.keys(m::AbstractModel) = _keys(params(m), m)
     else
         newparent = if nm in keys(m)
             _setindex(parent(m), Tuple(x), nm)
-        else                                 
+        else
             _addindex(parent(m), Tuple(x), nm)
         end
         setparent!(m, newparent)
