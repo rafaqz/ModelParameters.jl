@@ -182,7 +182,7 @@ printparams(m) = printparams(stdout, m)
 function printparams(io::IO, m::AbstractModel)
     if length(m) > 0
         println(io, "Parameters:")
-        PrettyTables.pretty_table(io, m, [keys(m)...])
+        PrettyTables.pretty_table(io, m)
     end
 end
 
