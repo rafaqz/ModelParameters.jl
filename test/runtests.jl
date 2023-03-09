@@ -6,6 +6,10 @@ using Aqua,
       Test,
       Unitful
 
+if !isdefined(Base, :get_extension) #ensures test compatibility for Julia versions <1.9
+    using ConstructionBaseExtras
+end
+
 import ModelParameters: component
 import BenchmarkTools
 
@@ -155,14 +159,14 @@ end
     @test m[:units] == (nothing, u"s", u"K", u"m", nothing, nothing, u"m*s^2", nothing)
     # Values have units now
     @test withunits(m) == (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)
-    @test withunits(m, :bounds) == 
-        ((5.0, 15.0), (5.0, 15.0) .* u"s", (5.0, 15.0) .* u"K", nothing, 
+    @test withunits(m, :bounds) ==
+        ((5.0, 15.0), (5.0, 15.0) .* u"s", (5.0, 15.0) .* u"K", nothing,
          (5.0, 15.0), nothing, (50.0, 150.0) .* u"m*s^2", nothing)
     @test stripunits(m, (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)) ==
         (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0)
-    @test stripunits(m, ((5.0, 15.0), (5.0, 15.0) .* u"s", (5.0, 15.0) .* u"K", nothing, 
+    @test stripunits(m, ((5.0, 15.0), (5.0, 15.0) .* u"s", (5.0, 15.0) .* u"K", nothing,
                          (5.0, 15.0), nothing, (50.0, 150.0) .* u"m*s^2", nothing)) ==
-                        ((5.0, 15.0), (5.0, 15.0), (5.0, 15.0), nothing, 
+                        ((5.0, 15.0), (5.0, 15.0), (5.0, 15.0), nothing,
                          (5.0, 15.0), nothing, (50.0, 150.0), nothing)
 end
 

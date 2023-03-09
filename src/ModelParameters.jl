@@ -8,13 +8,12 @@ end ModelParameters
 
 import AbstractNumbers,
        ConstructionBase,
-       ConstructionBaseExtras,
        Flatten,
-       PrettyTables, 
-       Tables 
+       PrettyTables,
+       Tables
 
 using Setfield
-      
+
 export AbstractModel, Model, StaticModel
 
 export AbstractParam, Param
