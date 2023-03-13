@@ -186,3 +186,10 @@ and BangBang.jl.
 [ConstructionBaseExtras.jl](https://github.com/JuliaObjects/ConstructionBaseExtras.jl) also
 exists to add support to common packages, such as StaticArrays.jl arrays. Import it if you 
 need StaticArrays support, or open an issue to add support to additional packages.
+
+**Note: Breaking change in 0.4.0**
+With the introduction of weak extensions in Julia 1.9, ConstructionBase.jl and ConstructionBaseExtras.jl
+should not be loaded at the same time (see [this issue](https://github.com/rafaqz/ModelParameters.jl/issues/52)). 
+ModelParameters.jl has dropped the direct dependency on ConstructionBase.jl in version 0.4.0.
+Users that employ Julia versions <1.9 are advised to load ConstructionBaseExtras.jl themselves if StaticArrays.jl 
+support is needed.
