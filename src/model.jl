@@ -27,7 +27,7 @@ model[:fieldname]
 
 ## Getting a `Vector` of parameter values
 
-`Base` methods `collect`, `vec`, and `Array` return a vector of the result of 
+`Base` methods `collect`, `vec`, and `Array` return a vector of the result of
 `model[:val]`. To get a vector of other parameter fields, simply `collect` the tuple:
 
 ```julian
@@ -55,19 +55,19 @@ update!(model, table)
 
 ## `AbstractModel` Interface: Defining your own model wrappers
 
-It may be simplest to use `ModelParameters.jl` on a wrapper type you also use for other 
-things. This is what DynamicGrids.jl does with `Ruleset`. It's straightforward to extend 
-the interface, nearly everything is taken care of by inheriting from `AbstractModel`. But 
+It may be simplest to use `ModelParameters.jl` on a wrapper type you also use for other
+things. This is what DynamicGrids.jl does with `Ruleset`. It's straightforward to extend
+the interface, nearly everything is taken care of by inheriting from `AbstractModel`. But
 in some circumstances you will need to define additional methods.
 
 `AbstractModel` uses `Base.parent` to return the parent model object.
-Either use a field `:parent` on your `<: AbstractModel` type, or add a 
-method to `Base.parent`. 
+Either use a field `:parent` on your `<: AbstractModel` type, or add a
+method to `Base.parent`.
 
-With a custom `parent` field you will also need to define a method for 
+With a custom `parent` field you will also need to define a method for
 [`setparent!`](@ref) and [`setparent`](@ref) that sets the correct field.
 
-An `AbstractModel` with complicated type parameters may require a method of 
+An `AbstractModel` with complicated type parameters may require a method of
 `ConstructionBase.constructorof`.
 
 To add custom `show` methods but still print the parameter table, you can use:
@@ -189,7 +189,7 @@ end
 setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
 
 update!(m::AbstractModel, vals::AbstractVector{<:AbstractParam}) = update!(m, Tuple(vals))
-function update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}})
+function update!(params::Tuple{<:AbstractParam,Vararg{AbstractParam}})
     setparent!(m, Flatten.reconstruct(parent(m), params, SELECT, IGNORE))
 end
 function update!(m::AbstractModel, table)
@@ -203,12 +203,12 @@ end
 """
     Model(x)
 
-A wrapper type for any model containing [`Param`](@ref) parameters - essentially marking 
+A wrapper type for any model containing [`Param`](@ref) parameters - essentially marking
 that a custom struct or Tuple holds `Param` fields.
 
-This allows you to index into the model as if it is a linear list of parameters, or named 
-columns of values and paramiter metadata. You can treat it as an iterable, or use the 
-Tables.jl interface to save or update the model to/from csv, a `DataFrame` or any source 
+This allows you to index into the model as if it is a linear list of parameters, or named
+columns of values and paramiter metadata. You can treat it as an iterable, or use the
+Tables.jl interface to save or update the model to/from csv, a `DataFrame` or any source
 that implements the Tables.jl interface.
 """
 mutable struct Model <: AbstractModel
