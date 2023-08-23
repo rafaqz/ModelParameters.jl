@@ -126,7 +126,7 @@ end
 function ArrayParam(nt::NT) where {NT<:NamedTuple} = begin
     _checkhasval(nt)
     A = nt.val
-    ArrayParam{eltype(nt.val),ndims(n),A,NT}(nt)
+    ArrayParam{eltype(nt.val),ndims(nt.val),NT}(nt)
 end
 
 for P in (Param, RealParam, ArrayParam) 
@@ -136,6 +136,12 @@ for P in (Param, RealParam, ArrayParam)
         Base.parent(p::$P) = getfield(p, :parent)
     end
 end
+
+# AbstractArray interface
+Base.parent(A::ArrayParam) = A.val
+Base.size(A::ArrayParam) = size(parent(A))
+Base.firstindex(A::ArrayParam) = firstindex(parent(A))
+Base.lastindex(A::ArrayParam) = lastindex(parent(A))
 
 # Methods for objects that hold params
 params(x) = Flatten.flatten(x, SELECT, IGNORE)
