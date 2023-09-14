@@ -9,14 +9,13 @@ constructor that accepts a `NamedTuple`. It must have a `val` property, and shou
 `checkhasval` in its constructor.
 """
 abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
-
-abstract type AbstractRealParam{T} <: Real end
+abstract type AbstractRealParam{T} <: AbstractNumbers.AbstractReal{T} end
 abstract type AbstractArrayParam{T,N} <: AbstractArray{T,N} end
 # We probably want this too, but the julia number system 
 # does not make it possible: 
 # abstract type AbstractComplexParam{T} <: AbstractComplex end
 
-const AllParams = Union{AllParams,AbstractRealParam,AbstractArrayParam}
+const AllParams = Union{AbstractParam,AbstractRealParam,AbstractArrayParam}
 
 function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P <: AllParams
     fields = ConstructionBase.setproperties(parent(p), patch)
@@ -51,15 +50,16 @@ Base.values(p::AllParams) = values(parent(p))
 @inline Base.get(p::AllParams, key::Symbol, default) = get(parent(p), key, default)
 @inline Base.getindex(p::AllParams, i) = getindex(parent(p), i)
 
+Base.@assume_effects foldable rebuild(p::T, newval) where T<:AllParams = T.name.wrapper(newval)
 
 # AbstractNumber interface
-Base.convert(::Type{Number}, x::AllParams) = AbstractNumbers.number(x)
-Base.convert(::Type{P}, x::P) where {P<:AllParams} = x
-AbstractNumbers.number(p::AllParams) = withunits(p)
-AbstractNumbers.basetype(::Type{<:AllParams{T}}) where T = T
-AbstractNumbers.like(::Type{<:AllParams}, x) = x
+Base.convert(::Type{Number}, x::Union{AbstractParam,AbstractRealParam}) = AbstractNumbers.number(x)
+Base.convert(::Type{P}, x::P) where {P<:Union{AbstractParam,AbstractRealParam}} = x
+AbstractNumbers.number(p::Union{AbstractParam,AbstractRealParam}) = withunits(p)
+AbstractNumbers.basetype(::Type{<:Union{<:AbstractParam{T},<:AbstractRealParam{T}}}) where T = T
+AbstractNumbers.like(::Type{<:Union{AbstractParam,AbstractRealParam}}, x) = x
 
-# Flatten.jl defaults defined here: AllParams needs to be defined first
+# Flatten.jl defaults defined here: AbstractParam needs to be defined first
 const SELECT = AllParams
 const IGNORE = AbstractDict # What else to blacklist?
 
@@ -87,7 +87,7 @@ $PARAMDESCRIPTION
 struct Param{T,P<:NamedTuple} <: AbstractParam{T}
     parent::P
 end
-function Param(nt::NT) where {NT<:NamedTuple} = begin
+function Param(nt::NT) where {NT<:NamedTuple}
     _checkhasval(nt)
     Param{typeof(nt.val),NT}(nt)
 end
@@ -105,7 +105,7 @@ $PARAMDESCRIPTION
 struct RealParam{T,P<:NamedTuple} <: AbstractRealParam{T}
     parent::P
 end
-function RealParam(nt::NT) where {NT<:NamedTuple} = begin
+function RealParam(nt::NT) where {NT<:NamedTuple}
     _checkhasval(nt)
     RealParam{typeof(nt.val),NT}(nt)
 end
@@ -123,13 +123,13 @@ $PARAMDESCRIPTION
 struct ArrayParam{T,N,P<:NamedTuple} <: AbstractArrayParam{T,N}
     parent::P
 end
-function ArrayParam(nt::NT) where {NT<:NamedTuple} = begin
+function ArrayParam(nt::NT) where {NT<:NamedTuple}
     _checkhasval(nt)
     A = nt.val
     ArrayParam{eltype(nt.val),ndims(nt.val),NT}(nt)
 end
 
-for P in (Param, RealParam, ArrayParam) 
+for P in (:Param, :RealParam, :ArrayParam) 
     @eval begin
         $P(val; kwargs...) = $P((; val=val, kwargs...))
         $P(; kwargs...) = $P((; kwargs...))
@@ -138,7 +138,7 @@ for P in (Param, RealParam, ArrayParam)
 end
 
 # AbstractArray interface
-Base.parent(A::ArrayParam) = A.val
+Base.iterate(A::ArrayParam) = iterate(parent(A))
 Base.size(A::ArrayParam) = size(parent(A))
 Base.firstindex(A::ArrayParam) = firstindex(parent(A))
 Base.lastindex(A::ArrayParam) = lastindex(parent(A))

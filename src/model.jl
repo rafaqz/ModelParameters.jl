@@ -146,13 +146,14 @@ end
 @inline function _setindex(obj, xs::Tuple, nm::Symbol)
     lens = Setfield.PropertyLens{nm}()
     newparams = map(params(obj), xs) do par, x
-        Param(Setfield.set(parent(par), lens, x))
+        rebuild(par, Setfield.set(parent(par), lens, x))
     end
     Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
 end
 @inline function _addindex(obj, xs::Tuple, nm::Symbol)
+    lens = Setfield.ComposedLens(Setfield.PropertyLens{:parent}(), Setfield.PropertyLens{nm}())
     newparams = map(params(obj), xs) do par, x
-        Param((; parent(par)..., (nm => x,)...))
+        rebuild(par, (; parent(par)..., (nm => x,)...))
     end
     Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
 end
@@ -227,10 +228,13 @@ mutable struct Model <: AbstractModel
 end
 Model(m::AbstractModel) = Model(parent(m))
 
-@inline @generated function _update_params(ps::P, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
+@inline @generated function _update_params(ps::P, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,AllParams}}
     expr = Expr(:tuple)
     for i in 1:N
-        expr_i = :(Param(NamedTuple{keys(ps[$i])}((values[$i], Base.tail(parent(ps[$i]))...))))
+        expr_i = quote
+            par = ps[$i]
+            rebuild(par, NamedTuple{keys(par)}((values[$i], Base.tail(parent(par))...)))
+        end
         push!(expr.args, expr_i)
     end
     return expr
@@ -285,7 +289,7 @@ function _expandkeys(x)
         vals = map(allkeys) do key
             get(par, key, nothing)
         end
-        Param(NamedTuple{allkeys}(vals))
+        rebuild(par, NamedTuple{allkeys}(vals))
     end
 end
 
