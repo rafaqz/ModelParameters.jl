@@ -189,8 +189,8 @@ end
 
 setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
 
-update!(m::AbstractModel, vals::AbstractVector{<:AbstractParam}) = update!(m, Tuple(vals))
-function update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}})
+update!(m::AbstractModel, vals::AbstractVector{<:AllParams}) = update!(m, Tuple(vals))
+function update!(params::Tuple{<:AllParams,Vararg{<:AllParams}})
     setparent!(m, Flatten.reconstruct(parent(m), params, SELECT, IGNORE))
 end
 function update!(m::AbstractModel, table)
@@ -241,12 +241,12 @@ Model(m::AbstractModel) = Model(parent(m))
 end
 
 update(x, values) = _update(ModelParameters.params(x), x, values)
-@inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
+@inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,AllParams}}
     @assert length(values) == N "values length must match the number of parameters"
     newparams = _update_params(p, values)
     Flatten.reconstruct(x, newparams, SELECT, IGNORE)
 end
-@inline function _update(p::P, x, table) where {N,P<:NTuple{N,Param}}
+@inline function _update(p::P, x, table) where {N,P<:NTuple{N,AllParams}}
     @assert size(table, 1) == N "number of rows must match the number of parameters"
     cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
     newparams = map(p, tuple(1:N...)) do param, i

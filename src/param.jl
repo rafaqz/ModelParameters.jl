@@ -10,12 +10,11 @@ constructor that accepts a `NamedTuple`. It must have a `val` property, and shou
 """
 abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
 abstract type AbstractRealParam{T} <: AbstractNumbers.AbstractReal{T} end
-abstract type AbstractArrayParam{T,N} <: AbstractArray{T,N} end
 # We probably want this too, but the julia number system 
 # does not make it possible: 
 # abstract type AbstractComplexParam{T} <: AbstractComplex end
 
-const AllParams = Union{AbstractParam,AbstractRealParam,AbstractArrayParam}
+const AllParams = Union{AbstractParam,AbstractRealParam}
 
 function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P <: AllParams
     fields = ConstructionBase.setproperties(parent(p), patch)
@@ -67,7 +66,6 @@ const IGNORE = AbstractDict # What else to blacklist?
 
 # We define multiple param types due to shortcomings in julias type system.
 # `RealParam` is required to subtype real and be useful in e.g. Distributions.jl
-# `ArrayParam` is required to have whole arrays as variables.
 
 const PARAMDESCRIPTION = """
 The first argument is assigned to the `val` field, and if only keyword arguments are used,
@@ -110,38 +108,13 @@ function RealParam(nt::NT) where {NT<:NamedTuple}
     RealParam{typeof(nt.val),NT}(nt)
 end
 
-"""
-    ArrayParam(p::NamedTuple)
-    ArrayParam(; kw...)
-    ArrayParam(val)
-
-A wrapper type that lets you extract `AbstractArray` typed model parameters and metadata 
-about the model like bounding val, units priors, or anything else you want to attach.
-
-$PARAMDESCRIPTION
-"""
-struct ArrayParam{T,N,P<:NamedTuple} <: AbstractArrayParam{T,N}
-    parent::P
-end
-function ArrayParam(nt::NT) where {NT<:NamedTuple}
-    _checkhasval(nt)
-    A = nt.val
-    ArrayParam{eltype(nt.val),ndims(nt.val),NT}(nt)
-end
-
-for P in (:Param, :RealParam, :ArrayParam) 
+for P in (:Param, :RealParam) 
     @eval begin
         $P(val; kwargs...) = $P((; val=val, kwargs...))
         $P(; kwargs...) = $P((; kwargs...))
         Base.parent(p::$P) = getfield(p, :parent)
     end
 end
-
-# AbstractArray interface
-Base.iterate(A::ArrayParam) = iterate(parent(A))
-Base.size(A::ArrayParam) = size(parent(A))
-Base.firstindex(A::ArrayParam) = firstindex(parent(A))
-Base.lastindex(A::ArrayParam) = lastindex(parent(A))
 
 # Methods for objects that hold params
 params(x) = Flatten.flatten(x, SELECT, IGNORE)
