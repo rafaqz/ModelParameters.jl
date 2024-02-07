@@ -49,8 +49,6 @@ Base.values(p::AllParams) = values(parent(p))
 @inline Base.get(p::AllParams, key::Symbol, default) = get(parent(p), key, default)
 @inline Base.getindex(p::AllParams, i) = getindex(parent(p), i)
 
-Base.@assume_effects foldable rebuild(p::T, newval) where T<:AllParams = T.name.wrapper(newval)
-
 # AbstractNumber interface
 Base.convert(::Type{Number}, x::Union{AbstractParam,AbstractRealParam}) = AbstractNumbers.number(x)
 Base.convert(::Type{P}, x::P) where {P<:Union{AbstractParam,AbstractRealParam}} = x
@@ -90,6 +88,8 @@ function Param(nt::NT) where {NT<:NamedTuple}
     Param{typeof(nt.val),NT}(nt)
 end
 
+rebuild(p::Param, newval) = Param(newval) 
+
 """
     RealParam(p::NamedTuple)
     RealParam(; kw...)
@@ -107,6 +107,8 @@ function RealParam(nt::NT) where {NT<:NamedTuple}
     _checkhasval(nt)
     RealParam{typeof(nt.val),NT}(nt)
 end
+
+rebuild(p::RealParam, newval) = RealParam(newval) 
 
 for P in (:Param, :RealParam) 
     @eval begin
