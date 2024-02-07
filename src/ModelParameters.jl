@@ -16,7 +16,7 @@ using Setfield
 
 export AbstractModel, Model, StaticModel
 
-export AbstractParam, Param
+export AbstractParam, Param, RealParam, ArrayParam
 
 export params, printparams, stripparams, update, update!, withunits, stripunits, groupparams, mapflat
 

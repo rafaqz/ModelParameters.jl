@@ -4,24 +4,30 @@ metadata that are returned from [`params`](@ref), and used in
 `getfield/setfield/getpropery/setproperty` methods and to generate the Tables.jl interface. 
 They are stripped from the model with [`stripparams`](@ref).
 
-An `AbstractParam` must define a `Base.parent` method that returns a `NamedTuple`, and a
+An `AllParams` must define a `Base.parent` method that returns a `NamedTuple`, and a
 constructor that accepts a `NamedTuple`. It must have a `val` property, and should use
 `checkhasval` in its constructor.
 """
 abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
+abstract type AbstractRealParam{T} <: AbstractNumbers.AbstractReal{T} end
+# We probably want this too, but the julia number system 
+# does not make it possible: 
+# abstract type AbstractComplexParam{T} <: AbstractComplex end
 
-function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P <: AbstractParam
+const AllParams = Union{AbstractParam,AbstractRealParam}
+
+function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P <: AllParams
     fields = ConstructionBase.setproperties(parent(p), patch)
     P.name.wrapper(fields)
 end
 
 @inline withunits(m, args...) = map(p -> withunits(p, args...), params(m))
-@inline function withunits(p::AbstractParam, fn::Symbol=:val)
+@inline function withunits(p::AllParams, fn::Symbol=:val)
     _applyunits(*, getproperty(p, fn), get(p, :units, nothing))
 end
 
 @inline stripunits(m, xs) = map(stripunits, params(m), xs)
-@inline function stripunits(p::AbstractParam, x)
+@inline function stripunits(p::AllParams, x)
     _applyunits(/, x, get(p, :units, nothing))
 end
 
@@ -34,28 +40,35 @@ end
 @inline _applyunits(f, ::Nothing, ::Nothing) = nothing
 
 # Base NamedTuple-like interface
-Base.keys(p::AbstractParam) = keys(parent(p))
+Base.keys(p::AllParams) = keys(parent(p))
 # Base.values has the potential to be confusing, as we
 # have a val field in Param.  Not sure what to do about this.
-Base.values(p::AbstractParam) = values(parent(p))
-@inline Base.propertynames(p::AbstractParam) = propertynames(parent(p))
-@inline Base.getproperty(p::AbstractParam, x::Symbol) = getproperty(parent(p), x)
-@inline Base.get(p::AbstractParam, key::Symbol, default) = get(parent(p), key, default)
-@inline Base.getindex(p::AbstractParam, i) = getindex(parent(p), i)
-
+Base.values(p::AllParams) = values(parent(p))
+@inline Base.propertynames(p::AllParams) = propertynames(parent(p))
+@inline Base.getproperty(p::AllParams, x::Symbol) = getproperty(parent(p), x)
+@inline Base.get(p::AllParams, key::Symbol, default) = get(parent(p), key, default)
+@inline Base.getindex(p::AllParams, i) = getindex(parent(p), i)
 
 # AbstractNumber interface
-Base.convert(::Type{Number}, x::AbstractParam) = AbstractNumbers.number(x)
-Base.convert(::Type{P}, x::P) where {P<:AbstractParam} = x
-AbstractNumbers.number(p::AbstractParam) = withunits(p)
-AbstractNumbers.basetype(::Type{<:AbstractParam{T}}) where T = T
-AbstractNumbers.like(::Type{<:AbstractParam}, x) = x
+Base.convert(::Type{Number}, x::Union{AbstractParam,AbstractRealParam}) = AbstractNumbers.number(x)
+Base.convert(::Type{P}, x::P) where {P<:Union{AbstractParam,AbstractRealParam}} = x
+AbstractNumbers.number(p::Union{AbstractParam,AbstractRealParam}) = withunits(p)
+AbstractNumbers.basetype(::Type{<:Union{<:AbstractParam{T},<:AbstractRealParam{T}}}) where T = T
+AbstractNumbers.like(::Type{<:Union{AbstractParam,AbstractRealParam}}, x) = x
 
 # Flatten.jl defaults defined here: AbstractParam needs to be defined first
-const SELECT = AbstractParam
+const SELECT = AllParams
 const IGNORE = AbstractDict # What else to blacklist?
 
-# Concrete implementation
+# Concrete implementations
+
+# We define multiple param types due to shortcomings in julias type system.
+# `RealParam` is required to subtype real and be useful in e.g. Distributions.jl
+
+const PARAMDESCRIPTION = """
+The first argument is assigned to the `val` field, and if only keyword arguments are used,
+`val`, must be one of them. `val` is used as the number val if the model us run
+without stripping out the `Param` fields. `stripparams` also takes only the `:val` field."""
 
 """
     Param(p::NamedTuple)
@@ -65,21 +78,45 @@ const IGNORE = AbstractDict # What else to blacklist?
 A wrapper type that lets you extract model parameters and metadata about the model like
 bounding val, units priors, or anything else you want to attach.
 
-The first argument is assigned to the `val` field, and if only keyword arguments are used,
-`val`, must be one of them. `val` is used as the number val if the model us run
-without stripping out the `Param` fields. `stripparams` also takes only the `:val` field.
+$PARAMDESCRIPTION
 """
 struct Param{T,P<:NamedTuple} <: AbstractParam{T}
     parent::P
 end
-Param(nt::NT) where {NT<:NamedTuple} = begin
+function Param(nt::NT) where {NT<:NamedTuple}
     _checkhasval(nt)
     Param{typeof(nt.val),NT}(nt)
 end
-Param(val; kwargs...) = Param((; val=val, kwargs...))
-Param(; kwargs...) = Param((; kwargs...))
 
-Base.parent(p::Param) = getfield(p, :parent)
+rebuild(p::Param, newval) = Param(newval) 
+
+"""
+    RealParam(p::NamedTuple)
+    RealParam(; kw...)
+    RealParam(val)
+
+A wrapper type that lets you extract `Real` typed model parameters and metadata 
+about the model like bounding val, units priors, or anything else you want to attach.
+
+$PARAMDESCRIPTION
+"""
+struct RealParam{T,P<:NamedTuple} <: AbstractRealParam{T}
+    parent::P
+end
+function RealParam(nt::NT) where {NT<:NamedTuple}
+    _checkhasval(nt)
+    RealParam{typeof(nt.val),NT}(nt)
+end
+
+rebuild(p::RealParam, newval) = RealParam(newval) 
+
+for P in (:Param, :RealParam) 
+    @eval begin
+        $P(val; kwargs...) = $P((; val=val, kwargs...))
+        $P(; kwargs...) = $P((; kwargs...))
+        Base.parent(p::$P) = getfield(p, :parent)
+    end
+end
 
 # Methods for objects that hold params
 params(x) = Flatten.flatten(x, SELECT, IGNORE)

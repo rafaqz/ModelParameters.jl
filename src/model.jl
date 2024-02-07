@@ -146,13 +146,14 @@ end
 @inline function _setindex(obj, xs::Tuple, nm::Symbol)
     lens = Setfield.PropertyLens{nm}()
     newparams = map(params(obj), xs) do par, x
-        Param(Setfield.set(parent(par), lens, x))
+        rebuild(par, Setfield.set(parent(par), lens, x))
     end
     Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
 end
 @inline function _addindex(obj, xs::Tuple, nm::Symbol)
+    lens = Setfield.ComposedLens(Setfield.PropertyLens{:parent}(), Setfield.PropertyLens{nm}())
     newparams = map(params(obj), xs) do par, x
-        Param((; parent(par)..., (nm => x,)...))
+        rebuild(par, (; parent(par)..., (nm => x,)...))
     end
     Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
 end
@@ -188,8 +189,8 @@ end
 
 setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
 
-update!(m::AbstractModel, vals::AbstractVector{<:AbstractParam}) = update!(m, Tuple(vals))
-function update!(params::Tuple{<:AbstractParam,Vararg{<:AbstractParam}})
+update!(m::AbstractModel, vals::AbstractVector{<:AllParams}) = update!(m, Tuple(vals))
+function update!(params::Tuple{<:AllParams,Vararg{<:AllParams}})
     setparent!(m, Flatten.reconstruct(parent(m), params, SELECT, IGNORE))
 end
 function update!(m::AbstractModel, table)
@@ -227,22 +228,25 @@ mutable struct Model <: AbstractModel
 end
 Model(m::AbstractModel) = Model(parent(m))
 
-@inline @generated function _update_params(ps::P, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
+@inline @generated function _update_params(ps::P, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,AllParams}}
     expr = Expr(:tuple)
     for i in 1:N
-        expr_i = :(Param(NamedTuple{keys(ps[$i])}((values[$i], Base.tail(parent(ps[$i]))...))))
+        expr_i = quote
+            par = ps[$i]
+            rebuild(par, NamedTuple{keys(par)}((values[$i], Base.tail(parent(par))...)))
+        end
         push!(expr.args, expr_i)
     end
     return expr
 end
 
 update(x, values) = _update(ModelParameters.params(x), x, values)
-@inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,Param}}
+@inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,AllParams}}
     @assert length(values) == N "values length must match the number of parameters"
     newparams = _update_params(p, values)
     Flatten.reconstruct(x, newparams, SELECT, IGNORE)
 end
-@inline function _update(p::P, x, table) where {N,P<:NTuple{N,Param}}
+@inline function _update(p::P, x, table) where {N,P<:NTuple{N,AllParams}}
     @assert size(table, 1) == N "number of rows must match the number of parameters"
     cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
     newparams = map(p, tuple(1:N...)) do param, i
@@ -285,7 +289,7 @@ function _expandkeys(x)
         vals = map(allkeys) do key
             get(par, key, nothing)
         end
-        Param(NamedTuple{allkeys}(vals))
+        rebuild(par, NamedTuple{allkeys}(vals))
     end
 end
 
