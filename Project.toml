@@ -13,21 +13,26 @@ Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 
 [compat]
 AbstractNumbers = "0.2.5"
+Aqua = "0.8"
+BenchmarkTools = "1"
 ConstructionBase = "1"
+DataFrames = "1"
 Flatten = "0.4"
 PrettyTables = "0.8, 0.9, 0.10, 0.11, 0.12, 1, 2"
 Setfield = "0.6, 0.7, 0.8, 1"
 Tables = "1"
+Test = "1"
+StaticArrays = "1"
+Unitful = "1"
 julia = "1"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-ConstructionBaseExtras = "914cd950-b775-4282-9f32-54fc4544c321"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [targets]
-test = ["Aqua", "BenchmarkTools", "ConstructionBaseExtras", "DataFrames", "StaticArrays", "Test", "Unitful"]
+test = ["Aqua", "BenchmarkTools", "DataFrames", "StaticArrays", "Test", "Unitful"]

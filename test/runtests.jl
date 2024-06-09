@@ -6,6 +6,15 @@ using Aqua,
       Test,
       Unitful
 
+@testset "Aqua" begin 
+    Aqua.test_ambiguities([ModelParameters, Base, Core]; exclude=[(==)])
+    Aqua.test_unbound_args(ModelParameters)
+    Aqua.test_undefined_exports(ModelParameters)
+    Aqua.test_project_extras(ModelParameters)
+    Aqua.test_stale_deps(ModelParameters)
+    Aqua.test_deps_compat(ModelParameters)
+end
+
 if !isdefined(Base, :get_extension) #ensures test compatibility for Julia versions <1.9
     using ConstructionBaseExtras
 end

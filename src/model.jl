@@ -190,7 +190,7 @@ end
 setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
 
 update!(m::AbstractModel, vals::AbstractVector{<:AllParams}) = update!(m, Tuple(vals))
-function update!(params::Tuple{<:AllParams,Vararg{<:AllParams}})
+function update!(params::Tuple{<:AllParams,Vararg{AllParams}})
     setparent!(m, Flatten.reconstruct(parent(m), params, SELECT, IGNORE))
 end
 function update!(m::AbstractModel, table)
