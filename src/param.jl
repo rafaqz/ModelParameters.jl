@@ -16,7 +16,7 @@ abstract type AbstractRealParam{T} <: AbstractNumbers.AbstractReal{T} end
 
 const AllParams = Union{AbstractParam,AbstractRealParam}
 
-function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P <: AllParams
+function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P<:AllParams
     fields = ConstructionBase.setproperties(parent(p), patch)
     P.name.wrapper(fields)
 end
@@ -39,22 +39,35 @@ end
 @inline _applyunits(f, ::Nothing, units) = nothing
 @inline _applyunits(f, ::Nothing, ::Nothing) = nothing
 
-# Base NamedTuple-like interface
-Base.keys(p::AllParams) = keys(parent(p))
-# Base.values has the potential to be confusing, as we
-# have a val field in Param.  Not sure what to do about this.
-Base.values(p::AllParams) = values(parent(p))
-@inline Base.propertynames(p::AllParams) = propertynames(parent(p))
-@inline Base.getproperty(p::AllParams, x::Symbol) = getproperty(parent(p), x)
-@inline Base.get(p::AllParams, key::Symbol, default) = get(parent(p), key, default)
-@inline Base.getindex(p::AllParams, i) = getindex(parent(p), i)
+for P in (:AbstractParam, :AbstractRealParam)
+    @eval begin
+        # Base NamedTuple-like interface
+        Base.keys(p::$P) = keys(parent(p))
+        # Base.values has the potential to be confusing, as we
+        # have a val field in Param.  Not sure what to do about this.
+        Base.values(p::$P) = values(parent(p))
+        @inline Base.propertynames(p::$P) = propertynames(parent(p))
+        @inline Base.getproperty(p::$P, x::Symbol) = getproperty(parent(p), x)
+        @inline Base.get(p::$P, key::Symbol, default) = get(parent(p), key, default)
+        @inline Base.getindex(p::$P, i) = getindex(parent(p), i)
+        @inline Base.getindex(p::$P, I::Integer...) = getindex(parent(p), I...)
+        @inline Base.getindex(p::$P, i::CartesianIndex{0}) = getindex(parent(p), i)
 
-# AbstractNumber interface
-Base.convert(::Type{Number}, x::Union{AbstractParam,AbstractRealParam}) = AbstractNumbers.number(x)
-Base.convert(::Type{P}, x::P) where {P<:Union{AbstractParam,AbstractRealParam}} = x
-AbstractNumbers.number(p::Union{AbstractParam,AbstractRealParam}) = withunits(p)
-AbstractNumbers.basetype(::Type{<:Union{<:AbstractParam{T},<:AbstractRealParam{T}}}) where T = T
-AbstractNumbers.like(::Type{<:Union{AbstractParam,AbstractRealParam}}, x) = x
+        # AbstractNumber interface
+        Base.convert(::Type{<:P}, x::P) where {P<:$P} = x
+        AbstractNumbers.number(p::$P) = withunits(p)
+        AbstractNumbers.basetype(::Type{<:$P{T}}) where T = T
+        AbstractNumbers.like(::Type{<:$P}, x) = x
+    end
+end
+
+# For Ambiguity
+AbstractNumbers.like(::Type{<:AbstractRealParam}, xs::Tuple) = AbstractNumbers.like.(xs)
+AbstractNumbers.like(::Type{<:AbstractParam}, ::Tuple) = AbstractNumbers.like.(xs)
+Base.convert(::Type{<:Real}, x::AbstractRealParam) = AbstractNumbers.number(x)
+Base.convert(::Type{<:Number}, x::AbstractParam) = AbstractNumbers.number(x)
+Base.convert(::Type{AN}, p::AbstractRealParam) where {T,AN<:AbstractNumbers.AbstractReal{T}} = convert(AN, p.val)
+Base.convert(::Type{AN}, p::AbstractParam) where {T,AN<:Union{AbstractNumbers.AbstractNumber{T}, AbstractNumbers.AbstractReal{T}}} = convert(AN, p.val)
 
 # Flatten.jl defaults defined here: AbstractParam needs to be defined first
 const SELECT = AllParams
@@ -80,11 +93,14 @@ bounding val, units priors, or anything else you want to attach.
 
 $PARAMDESCRIPTION
 """
-struct Param{T,P<:NamedTuple} <: AbstractParam{T}
+struct Param{T<:Number,P<:NamedTuple} <: AbstractParam{T}
     parent::P
+    function Param{T,P}(nt::P) where {T<:Number,P<:NamedTuple}
+        _checkhasval(T, nt)
+        new{T,P}(nt)
+    end
 end
 function Param(nt::NT) where {NT<:NamedTuple}
-    _checkhasval(nt)
     Param{typeof(nt.val),NT}(nt)
 end
 
@@ -100,11 +116,14 @@ about the model like bounding val, units priors, or anything else you want to at
 
 $PARAMDESCRIPTION
 """
-struct RealParam{T,P<:NamedTuple} <: AbstractRealParam{T}
+struct RealParam{T<:Real,P<:NamedTuple} <: AbstractRealParam{T}
     parent::P
+    function RealParam{T,P}(nt::P) where {T<:Real,P<:NamedTuple}
+        _checkhasval(T, nt)
+        new{T,P}(nt)
+    end
 end
 function RealParam(nt::NT) where {NT<:NamedTuple}
-    _checkhasval(nt)
     RealParam{typeof(nt.val),NT}(nt)
 end
 
@@ -112,11 +131,12 @@ rebuild(p::RealParam, newval) = RealParam(newval)
 
 for P in (:Param, :RealParam) 
     @eval begin
-        $P(val; kwargs...) = $P((; val=val, kwargs...))
-        $P(; kwargs...) = $P((; kwargs...))
         Base.parent(p::$P) = getfield(p, :parent)
+        $P(; kwargs...) = $P((; kwargs...))
     end
 end
+RealParam(val::Real; kwargs...) = RealParam((; val=val, kwargs...))
+Param(val::Number; kwargs...) = Param((; val=val, kwargs...))
 
 # Methods for objects that hold params
 params(x) = Flatten.flatten(x, SELECT, IGNORE)
@@ -126,6 +146,10 @@ stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), SELECT, IGNO
 # Utils
 hasparam(obj) = length(params(obj)) > 0
 
-_checkhasval(nt::NamedTuple{Keys}) where {Keys} = first(Keys) == :val || _novalerror(nt)
+function _checkhasval(::Type{T}, nt::NamedTuple{Keys}) where {T,Keys} 
+    first(Keys) == :val || _novalerror(nt)
+    nt.val isa T || _valtypeerror(T, nt)
+end
 # @noinline avoids allocations unless there is actually an error
 @noinline _novalerror(nt) = throw(ArgumentError("First field of Param must be :val"))
+@noinline _valtypeerror(T, nt) = throw(ArgumentError("Expected val field to be of type $T, got $(nt.val)"))
