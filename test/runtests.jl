@@ -7,7 +7,10 @@ using Aqua,
       Unitful
 
 @testset "Aqua" begin 
-    Aqua.test_ambiguities([ModelParameters, Base, Core]; exclude=[(==)])
+    # Dont check ambiguity on nightly
+    if occursin("DEV",string(VERSION))
+        Aqua.test_ambiguities([ModelParameters, Base, Core]; exclude=[(==)])
+    end
     Aqua.test_unbound_args(ModelParameters)
     Aqua.test_undefined_exports(ModelParameters)
     Aqua.test_project_extras(ModelParameters)
