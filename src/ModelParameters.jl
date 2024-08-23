@@ -14,6 +14,12 @@ import AbstractNumbers,
 
 using Setfield
 
+using PackageExtensionCompat
+
+function __init__()
+    @require_extensions
+end
+
 export AbstractModel, Model, StaticModel
 
 export AbstractParam, Param, RealParam
