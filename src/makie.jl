@@ -64,17 +64,15 @@ ui = MakieModel(model; submodel=Nothing, throttle=0.1) do m
 end
 ```
 """
-mutable struct MakieModel{F,O} <: AbstractModel
+mutable struct MakieModel{F} <: AbstractModel
     f::F
     parent::Any
     figure::Any
 end
 MakieModel(f, model::AbstractModel; kw...) = MakieModel(f, parent(model); kw...)
-function MakieModel(f, op, model; kw...)
+function MakieModel(f, model; kw...)
     # Error if a non function is passed
-    f isa Base.Callable || throw(ArgumenError("first argument `f` must be a `Function` or `Type`"))
-    # Error if a non function is passed
-    op isa Base.Callable || throw(ArgumenError("second argument `f` must be a `Function` or `Type`"))
+    f isa Base.Callable || throw(ArgumentError("first argument `f` must be a `Function` or `Type`"))
     # Error because we cant reach here if Makie is not loaded
     throw(ArgumentError("Please run `using GLMakie` or `using WGLMakie` to make an interactive Makie instance avaialble."))
 end
