@@ -7,6 +7,6 @@ using ModelParameters.Flatten
 
 import ModelParameters: MakieModel
 
-include("interactive.jl")
+include("makiemodel.jl")
 
 end
