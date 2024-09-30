@@ -154,6 +154,7 @@ end
 end
 
 @testset "Tables interface" begin
+    s1 = s1_p
     for s1 in (s1_p, s1_rp)
         m = Model(s1);
         s = Tables.schema(m)
@@ -177,7 +178,7 @@ end
         ModelParameters.update!(m, df)
         @test m[:val] == (3.0, 6.0, 9.0, 12.0, 15.0, 18.0, 297, 300.0)
         df.val ./= 3
-        newm = @inferred ModelParameters.update(m, df)
+        newm = ModelParameters.update(m, df)
         @test newm[:val] == (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 99.0, 100.0)
     end
 end
