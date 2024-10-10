@@ -41,27 +41,26 @@ This is a simple example where the model is a `NamedTuple`, adapted from
 an Interact.jl example. It will display in atoms plot pane:
 
 ```julia
-using InteractModels, Interact, ColorSchemes, Colors
+using ModelParameters, GLMakie, CSV
 
-color(i) = Colors.hex(colors[i%length(colors)+1])
-colors = ColorSchemes.viridis
-width, height = 700, 300
-nsamples = 256
-
-model = (;
-    sample_step=Param(val=0.05, range=0.01:0.001:0.1, label="Sample step"),
-    phase=Param(val=0.0, range=0:0.1:2pi, label="Phase"),
-    radii=Param(val=20,range=0:0.1:60, label="Radus")
+# Define some parameters
+p = (; 
+    noise=Param(0.5, bounds=(0.0, 1.0), label="Noise"),
+    color=Param(0.5, bounds=(0.0, 1.0), label="Color"),
 )
 
-ui = MakieModel(model; submodel=Nothing, throttle=0.1) do m
-    cxs_unscaled = [i * m.sample_step + m.phase for i in 1:nsamples]
-    cys = sin.(cxs_unscaled) .* height/3 .+ height/2
-    cxs = cxs_unscaled .* width/4pi
-    c = (dom"svg:circle[cx=\$(cxs[i]), cy=\$(cys[i]), r=\$(m.radii), fill=#\$(color(i))]"()
-         for i in 1:nsamples)
-    return dom"svg:svg[width=\$width, height=\$height]"(c...)
+# Make an interactive model 
+m = MakieModel(p) do layout, model
+    A = lift(model) do m
+        max.(min.((rand(10, 10) .- 0.5) .* m.noise .+ m.color, 1.0), 0.0)
+    end
+    ax = Axis(layout[1, 1])
+    heatmap!(ax, A; colorrange=(0, 1))
 end
+
+# We can save the parameters set in the interface
+# to anything Tables.jl compatible, like csv
+CSV.write("modelparams.csv", m)
 ```
 """
 mutable struct MakieModel{F} <: AbstractModel
