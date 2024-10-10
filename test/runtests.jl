@@ -4,6 +4,7 @@ using Aqua,
       Setfield,
       StaticArrays,
       Test,
+      Makie,
       Unitful
 
 @testset "Aqua" begin 
@@ -305,4 +306,17 @@ end
     obj = S3(Param(1.0))
     m = Model(obj)
     @test m[:component] == (typeof(obj),)
+end
+
+@testset "MakieModel" begin
+    ran = Ref(false)
+    MakieModel((; param=Param(0.5, bounds=(0.0, 1.0), label="test param"))) do layout, model
+        A = lift(model) do m
+            rand(10, 10) .^ m.param
+        end
+        ax = Axis(layout[1, 1])
+        heatmap!(ax, A; colorrange=(0, 1))
+        ran[] = true 
+    end
+    @test ran[]
 end
