@@ -26,11 +26,18 @@ import BenchmarkTools
 
 @testset "param setproperties" begin
     for P in (Param, RealParam)
-        param = Param(1; a=2.0, b="3", c='4')
+        param = P(1; a=2.0, b="3", c='4')
         @set! param.val = 2
         @test param.val == 2
         @set! param.a = "99"
         @test param.a == "99"
+    end
+end
+
+@testset "getindex works like Number" begin
+    for P in (Param, RealParam)
+        param = P(1; a=2.0, b="3", c='4')
+        @test param[1] == 1
     end
 end
 

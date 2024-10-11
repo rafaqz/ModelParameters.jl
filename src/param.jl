@@ -50,6 +50,8 @@ for P in (:AbstractParam, :AbstractRealParam)
         @inline Base.getproperty(p::$P, x::Symbol) = getproperty(parent(p), x)
         @inline Base.get(p::$P, key::Symbol, default) = get(parent(p), key, default)
         @inline Base.getindex(p::$P, i) = getindex(parent(p), i)
+        @inline Base.getindex(p::$P) = getindex(p.val)
+        # We have some inconsistencies here... is is a Number or a NamedTuple
         @inline Base.getindex(p::$P, I::Integer...) = getindex(parent(p), I...)
         @inline Base.getindex(p::$P, i::CartesianIndex{0}) = getindex(parent(p), i)
 
