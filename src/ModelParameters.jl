@@ -14,7 +14,7 @@ import AbstractNumbers,
 
 using Setfield
 
-export AbstractModel, Model, StaticModel
+export AbstractModel, Model, StaticModel, MakieModel
 
 export AbstractParam, Param, RealParam
 
@@ -24,5 +24,6 @@ include("interface.jl")
 include("param.jl")
 include("model.jl")
 include("tables.jl")
+include("makie.jl")
 
 end
