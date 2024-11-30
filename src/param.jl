@@ -1,7 +1,7 @@
 """
-Abstract supertype for parameters. Theses are wrappers for model parameter values and 
-metadata that are returned from [`params`](@ref), and used in 
-`getfield/setfield/getpropery/setproperty` methods and to generate the Tables.jl interface. 
+Abstract supertype for parameters. Theses are wrappers for model parameter values and
+metadata that are returned from [`params`](@ref), and used in
+`getfield/setfield/getpropery/setproperty` methods and to generate the Tables.jl interface.
 They are stripped from the model with [`stripparams`](@ref).
 
 An `AllParams` must define a `Base.parent` method that returns a `NamedTuple`, and a
@@ -10,8 +10,8 @@ constructor that accepts a `NamedTuple`. It must have a `val` property, and shou
 """
 abstract type AbstractParam{T} <: AbstractNumbers.AbstractNumber{T} end
 abstract type AbstractRealParam{T} <: AbstractNumbers.AbstractReal{T} end
-# We probably want this too, but the julia number system 
-# does not make it possible: 
+# We probably want this too, but the julia number system
+# does not make it possible:
 # abstract type AbstractComplexParam{T} <: AbstractComplex end
 
 const AllParams = Union{AbstractParam,AbstractRealParam}
@@ -73,7 +73,7 @@ Base.convert(::Type{AN}, p::AbstractParam) where {T,AN<:Union{AbstractNumbers.Ab
 
 # Flatten.jl defaults defined here: AbstractParam needs to be defined first
 const SELECT = AllParams
-const IGNORE = AbstractDict # What else to blacklist?
+const IGNORE = Union{AbstractDict, Array}  # What else to blacklist?
 
 # Concrete implementations
 
@@ -106,14 +106,14 @@ function Param(nt::NT) where {NT<:NamedTuple}
     Param{typeof(nt.val),NT}(nt)
 end
 
-rebuild(p::Param, newval) = Param(newval) 
+rebuild(p::Param, newval) = Param(newval)
 
 """
     RealParam(p::NamedTuple)
     RealParam(; kw...)
     RealParam(val)
 
-A wrapper type that lets you extract `Real` typed model parameters and metadata 
+A wrapper type that lets you extract `Real` typed model parameters and metadata
 about the model like bounding val, units priors, or anything else you want to attach.
 
 $PARAMDESCRIPTION
@@ -129,9 +129,9 @@ function RealParam(nt::NT) where {NT<:NamedTuple}
     RealParam{typeof(nt.val),NT}(nt)
 end
 
-rebuild(p::RealParam, newval) = RealParam(newval) 
+rebuild(p::RealParam, newval) = RealParam(newval)
 
-for P in (:Param, :RealParam) 
+for P in (:Param, :RealParam)
     @eval begin
         Base.parent(p::$P) = getfield(p, :parent)
         $P(; kwargs...) = $P((; kwargs...))
@@ -148,7 +148,7 @@ stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), SELECT, IGNO
 # Utils
 hasparam(obj) = length(params(obj)) > 0
 
-function _checkhasval(::Type{T}, nt::NamedTuple{Keys}) where {T,Keys} 
+function _checkhasval(::Type{T}, nt::NamedTuple{Keys}) where {T,Keys}
     first(Keys) == :val || _novalerror(nt)
     nt.val isa T || _valtypeerror(T, nt)
 end
