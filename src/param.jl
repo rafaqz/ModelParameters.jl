@@ -73,7 +73,7 @@ Base.convert(::Type{AN}, p::AbstractParam) where {T,AN<:Union{AbstractNumbers.Ab
 
 # Flatten.jl defaults defined here: AbstractParam needs to be defined first
 const SELECT = AllParams
-const IGNORE = AbstractDict # What else to blacklist?
+const IGNORE = Union{AbstractDict, AbstractArray} # What else to blacklist?
 
 # Concrete implementations
 
