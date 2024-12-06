@@ -1,7 +1,7 @@
 name = "ModelParameters"
 uuid = "4744a3fa-6c31-4707-899e-a3298e4618ad"
 authors = ["Rafael Schouten <rafaelschouten@gmail.com> and contributors"]
-version = "0.4.4"
+version = "0.4.5"
 
 [deps]
 AbstractNumbers = "85c772de-338a-5e7f-b815-41e76c26ac1f"
