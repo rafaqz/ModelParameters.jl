@@ -145,7 +145,7 @@ model[:bounds] = ((1.0, 4.0), (0.0, 1.0), (0.0, 0.1), (0.0, 100.0))
 
 ModelParameters makes it very easy to make modifications to your model
 parameters. To update all model values to be `Float32`, you can simply do: 
-
+u
 ```julia
 model[:val] = map(Float32, model[:val])
 ```
@@ -159,17 +159,10 @@ of Table or `DataFrame` using the Tables.jl interface:
 update!(model, table)
 ```
 
-## Live Interact.jl models
+## Live Makie.jl interfaces
 
-InteractModels.jl is a subpackage of ModelParameters.jl, but needs to be
-installed separately. This avoids loading the heavy web-stack dependencies of
-Interact.jl when you don't need them.
-
-Using InteractModels, any model can have an Interact.jl web interface defined
-for it automatically, by providing a function that plots or displays your model
-in some way that can show in a web page. The interface, slider controllers and
-model updates are all taken care of.
-
+`MakieModel` will become available if you use `Makie.jl`, and can automatically generate 
+an interface with parameter sliders, and plots you define in the closure.
 
 ## Potential Problems
 
