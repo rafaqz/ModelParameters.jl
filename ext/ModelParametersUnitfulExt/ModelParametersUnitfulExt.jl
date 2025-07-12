@@ -4,7 +4,7 @@ using ModelParameters
 using Unitful
 using Setfield
 
-ModelParameters.Param(val::Unitful.AbstractQuantity; kwargs...) = Param(ustrip(val), units=unit(val), kwargs...)
+(::Type{PT})(val::Unitful.AbstractQuantity; kwargs...) where {PT<:AbstractParam} = PT(ustrip(val), units=unit(val), kwargs...)
 
 """
     Unitful.uconvert(u::Unitful.Units, p::Param)
