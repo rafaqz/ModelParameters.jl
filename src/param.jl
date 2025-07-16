@@ -86,9 +86,6 @@ for (P, T) in ((:Param, :Number), (:RealParam, :Real), (:Const, :Number), (:Real
         @inline Base.getindex(p::$AP, I::Integer...) = getindex(parent(p), I...)
         @inline Base.getindex(p::$AP, i::CartesianIndex{0}) = getindex(parent(p), i)
         Base.convert(::Type{<:P}, x::P) where {P<:$AP} = x
-        # For ambiguity
-        Base.convert(::Type{<:$T}, x::$AP) = AbstractNumbers.number(x)
-        Base.convert(::Type{AN}, p::$AP) where {T,AN<:AbstractNumbers.$AT{T}} = convert(AN, p.val)
         # AbstractNumber interface
         AbstractNumbers.number(p::$AP) = withunits(p)
         AbstractNumbers.basetype(::Type{<:$AP{T}}) where T = T
@@ -143,6 +140,7 @@ hasparamorconstant(obj) = length(paramsandconstants(obj)) > 0
 @inline withunits(p::AllParamsOrConst, fn::Symbol=:val) =
     _applyunits(*, getproperty(p, fn), get(p, :units, nothing))
 
+# TODO fix this 
 @inline stripunits(m, xs) = map(stripunits, paramsandconstants(m), xs)
 @inline stripunits(p::AllParamsOrConst, x) = _applyunits(/, x, get(p, :units, nothing))
 

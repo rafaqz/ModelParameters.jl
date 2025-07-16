@@ -41,7 +41,7 @@ function attach_sliders!(fig, model::AbstractModel, parent_obs;
         on(combined_obs) do values
             try
                 model[:val] = stripunits(model, values)
-                parent_obs[] = stripparams(model)
+                parent_obs[] = strip(model)
                 notify(parent_obs)
             catch e
                 println(stdout, e)

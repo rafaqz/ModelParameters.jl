@@ -1,11 +1,11 @@
-using Aqua,
-      DataFrames,
-      ModelParameters,
-      Setfield,
-      StaticArrays,
-      Test,
-      Makie,
-      Unitful
+using Aqua
+using DataFrames
+using ModelParameters
+using Setfield
+using StaticArrays
+using Test
+using Makie
+using Unitful
 
 @testset "Aqua" begin 
     # Dont check ambiguity on nightly
@@ -15,10 +15,6 @@ using Aqua,
     Aqua.test_project_extras(ModelParameters)
     Aqua.test_stale_deps(ModelParameters)
     Aqua.test_deps_compat(ModelParameters)
-end
-
-if !isdefined(Base, :get_extension) #ensures test compatibility for Julia versions <1.9
-    using ConstructionBaseExtras
 end
 
 import ModelParameters: component
@@ -210,8 +206,8 @@ end
     @test occursin("units", sh)
     @test m[:units] == (nothing, u"s", u"K", u"m", nothing, nothing, u"m*s^2", nothing)
     # Values have units now
-    @test withunits(m) == (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)
-    @test withunits(m, :bounds) ==
+    @test paramswithunits(m) == (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)
+    @test paramswithunits(m, :bounds) ==
         ((5.0, 15.0), (5.0, 15.0) .* u"s", (5.0, 15.0) .* u"K", nothing,
          (5.0, 15.0), nothing, (50.0, 150.0) .* u"m*s^2", nothing)
     @test stripunits(m, (1.0, 2.0u"s", 3.0u"K", 4.0u"m", 5.0, 6.0, 7.0u"m*s^2", 8.0)) ==

@@ -148,7 +148,7 @@ end
     newparams = map(params(obj), xs) do par, x
         rebuild(par, Setfield.set(parent(par), lens, x))
     end
-    return reconstructparam(obj, newparams)
+    return reconstructparams(obj, newparams)
 end
 @inline function _addindex(obj, xs::Tuple, nm::Symbol)
     lens = Setfield.ComposedLens(Setfield.PropertyLens{:parent}(), Setfield.PropertyLens{nm}())
@@ -267,7 +267,7 @@ struct StaticModel{P} <: AbstractModel
         # Need at least 1 AbstractParam field to be a Model
         if hasparam(parent)
             expandedpars = _expandkeys(params(parent))
-            reconstructparams(parent, expandedpars)
+            parent = reconstructparams(parent, expandedpars)
         else
             _noparamwarning()
         end
