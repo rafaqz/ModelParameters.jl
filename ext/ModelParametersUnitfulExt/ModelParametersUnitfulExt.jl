@@ -4,7 +4,8 @@ using ModelParameters
 using Unitful
 using Setfield
 
-ModelParameters.Param(val::Unitful.AbstractQuantity; kwargs...) = Param(ustrip(val), units=unit(val), kwargs...)
+ModelParameters.Param(val::Unitful.AbstractQuantity{<:Number}; kwargs...) = Param(ustrip(val); units=unit(val), kwargs...)
+ModelParameters.RealParam(val::Unitful.AbstractQuantity{<:Real}; kwargs...) = RealParam(ustrip(val); units=unit(val), kwargs...)
 
 """
     Unitful.uconvert(u::Unitful.Units, p::Param)

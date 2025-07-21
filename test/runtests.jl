@@ -194,8 +194,10 @@ end
 @testset "Unitful extensions" begin
     p = Param(1.0u"m")
     @test hasproperty(p, :units) && p.units == u"m"
+    rp = RealParam(1.0u"m")
+    @test hasproperty(rp, :units) && rp.units == u"m"
     p_cm = uconvert(u"cm", p)
-    @test p.units == u"cm" && p.val == 100.0
+    @test p_cm.units == u"cm" && p_cm.val == 100.0
 end
 
 @testset "use Unitful units, with StaticModel" begin
