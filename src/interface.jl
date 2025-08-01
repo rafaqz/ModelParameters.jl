@@ -2,26 +2,34 @@
     params(object)
     params(model::AbstractModel)
 
-Returns a tuple of all `Param`s in the model or arbitrary object.
+Returns a tuple of all `AbstractParam`s or `AbstractRealParam`s in the model, or arbitrary object.
 """
 function params end
+
+"""
+    constants(object)
+    constants(model::AbstractModel)
+
+Returns a tuple of all `Const`s in the model or arbitrary object.
+"""
+function constants end
 
 """
     printparams(object)
     printparams(io::IO, object)
 
-Prints a table of all `Param`s in the object, similar to what
-is printed in the repl for `AbstractModel`.
+Prints a table of all `AbstractParam`s or `AbstractRealParam`s in the object, 
+similar to what is printed in the repl for `AbstractModel`.
 """
 function printparams end
 
 """
-    stripparams(object)
+    strip(object)
 
-Strips all `AbstractParam` from an object, replacing them with the `val` 
-field, or a combination of `val` and `units` if a `units` field exists.
+Strips all `AbstractParam`, `AbstractConst` from an object, replacing them with 
+the `val` field, or a combination of `val` and `units` if a `units` field exists.
 """
-function stripparams end
+function strip end
 
 """
     update!(m::MutableModel, table)
@@ -40,34 +48,6 @@ Update the model from an object that implements the Tables.jl interface,
 returning a new, updated object.
 """
 function update end
-
-"""
-    withunits(object, [fieldname])
-    withunits(model::AbstractModel, [fieldname])
-    withunits(param::AbstractParam, [fieldname])
-
-Returns the field specifed by `fieldname` (by default `:val`) for a single `Param`, 
-or a tuple of the `Param`s in a `Model` or arbitrary object. 
-
-If there is a `units` field the returned value will be a combination of the specied field 
-and the `units` fields. 
-
-If there is no units field or a specific `Param`s `units` fields contains `nothing`, 
-the field value is returned unchanged.
-"""
-function withunits end
-
-"""
-    stripunits(model::AbstractModel, xs)
-    stripunits(param::AbstractParam, x)
-
-Returns the `x` or `xs` divided by their corresponding units field, if it exists.
-
-It there is no units field, and x has units, it will be returned with units! It
-you want to simply remove all units, using Unitful.ustrip.
-"""
-function stripunits end
-
 
 # Low-level, non-exported interface
 

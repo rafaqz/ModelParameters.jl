@@ -16,9 +16,9 @@ using Setfield
 
 export AbstractModel, Model, StaticModel, MakieModel
 
-export AbstractParam, Param, RealParam
+export AbstractParam, Param, RealParam, Const, RealConst
 
-export params, printparams, stripparams, update, update!, withunits, stripunits, groupparams, mapflat
+export params, constants, printparams, strip, update, update!, withunits, paramswithunits, constantswithunits, stripunits, groupparams, mapflat
 
 include("interface.jl")
 include("param.jl")

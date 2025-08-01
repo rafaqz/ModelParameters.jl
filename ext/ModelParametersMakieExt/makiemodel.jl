@@ -64,11 +64,11 @@ function param_sliders!(fig, model::AbstractModel; layout=fig, ncolumns, slider_
     else
         model1[:fieldname]
     end
-    values = withunits(model1)
+    values = paramswithunits(model1)
     ranges = if haskey(model1, :range)
-        withunits(model1, :range)
+        paramswithunits(model1, :range)
     elseif haskey(model1, :bounds)
-        _makerange.(withunits(model1, :bounds), values)
+        _makerange.(paramswithunits(model1, :bounds), values)
     else
         _makerange.(Ref(nothing), values)
     end
