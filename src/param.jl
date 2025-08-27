@@ -117,7 +117,7 @@ end
 const SELECTPARAM = AllParams
 const SELECTCONST = AllConst
 const SELECTALL = Union{AllParams,AllConst}
-const IGNORE = Union{AbstractDict,Array}  # What else to blacklist?
+const IGNORE = Union{AbstractDict,Array,Base.RefValue}  # What else to blacklist?
 
 params(x) = Flatten.flatten(x, SELECTPARAM, IGNORE)
 constants(x) = Flatten.flatten(x, SELECTCONST, IGNORE)
@@ -128,10 +128,10 @@ reconstructparams(obj, newparams) =
 reconstructconstants(obj, newparams) = 
     Flatten.reconstruct(obj, newparams, SELECTCONST, IGNORE)
 
-@inline paramswithunits(m, args...) = map(p -> withunits(p, args...), params(m))
-@inline constantswithunits(m, args...) = map(p -> withunits(p, args...), constants(m))
+@inline paramswithunits(m, args...) = unrolled_map(p -> withunits(p, args...), params(m))
+@inline constantswithunits(m, args...) = unrolled_map(p -> withunits(p, args...), constants(m))
 
-strip(x) = hasparamorconstant(x) ? Flatten.reconstruct(x, map(withunits, paramsandconstants(x)), SELECTALL, IGNORE) : x
+strip(x) = hasparamorconstant(x) ? Flatten.reconstruct(x, unrolled_map(withunits, paramsandconstants(x)), SELECTALL, IGNORE) : x
 
 hasparam(obj) = length(params(obj)) > 0
 hasconstant(obj) = length(constants(obj)) > 0
@@ -141,7 +141,7 @@ hasparamorconstant(obj) = length(paramsandconstants(obj)) > 0
     _applyunits(*, getproperty(p, fn), get(p, :units, nothing))
 
 # TODO fix this 
-@inline stripunits(m, xs) = map(stripunits, paramsandconstants(m), xs)
+@inline stripunits(m, xs) = unrolled_map(stripunits, params(m), xs)
 @inline stripunits(p::AllParamsOrConst, x) = _applyunits(/, x, get(p, :units, nothing))
 
 @deprecate stripparams strip
@@ -149,7 +149,7 @@ hasparamorconstant(obj) = length(paramsandconstants(obj)) > 0
 # Param might have `nothing` for units
 @inline _applyunits(f, x, units) = f(x, units)
 @inline _applyunits(f, x, ::Nothing) = x
-@inline _applyunits(f, xs::Tuple, units) = map(x -> f(x, units), xs)
+@inline _applyunits(f, xs::Tuple, units) = unrolled_map(x -> f(x, units), xs)
 @inline _applyunits(f, xs::Tuple, units::Nothing) = xs
 @inline _applyunits(f, ::Nothing, units) = nothing
 @inline _applyunits(f, ::Nothing, ::Nothing) = nothing
@@ -161,3 +161,23 @@ end
 # @noinline avoids allocations unless there is actually an error
 @noinline _novalerror(nt) = throw(ArgumentError("First field of Param must be :val"))
 @noinline _valtypeerror(T, nt) = throw(ArgumentError("Expected val field to be of type $T, got $(nt.val)"))
+
+# Tuple map that is always unrolled
+# mostly for stack indexing performance
+_unrolled_map_inner(f, v::Type{T}) where T = 
+    Expr(:tuple, (:(f(v[$i])) for i in eachindex(T.types))...)
+_unrolled_map_inner(f, v1::Type{T}, v2::Type) where T = 
+    Expr(:tuple, (:(f(v1[$i], v2[$i])) for i in eachindex(T.types))...)
+
+@generated function unrolled_map(f, v::NamedTuple{K}) where K
+    exp = _unrolled_map_inner(f, v)
+    :(NamedTuple{K}($exp))
+end
+@generated function unrolled_map(f, v1::NamedTuple{K}, v2::NamedTuple{K}) where K
+    exp = _unrolled_map_inner(f, v1, v2)
+    :(NamedTuple{K}($exp))
+end
+@generated unrolled_map(f, v::Tuple) =
+    _unrolled_map_inner(f, v)
+@generated unrolled_map(f, v1::Tuple, v2::Tuple) = 
+    _unrolled_map_inner(f, v1, v2)

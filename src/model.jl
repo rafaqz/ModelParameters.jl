@@ -85,6 +85,7 @@ setparent(m::AbstractModel, newparent) = @set m.parent = newparent
 
 params(m::AbstractModel) = params(parent(m))
 strip(m::AbstractModel) = strip(parent(m))
+stripunits(m::AbstractModel, x) = stripunits(parent(m), x)
 function update(x::T, values) where {T<:AbstractModel}
     hasfield(T, :parent) || _updatenotdefined(T)
     setparent(x, update(parent(x), values))

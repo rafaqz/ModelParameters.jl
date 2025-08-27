@@ -29,7 +29,7 @@ figure(m::MakieModel) = getproperty(m, :figure)
 function attach_sliders!(fig, model::AbstractModel, parent_obs;
     ncolumns, slider_kw=(;), layout=GridLayout(fig[2, 1]),
 )
-    length(params(model)) == 0 && return
+    isempty(ModelParameters.params(model)) && return
 
     sliderlayout, slider_obs = param_sliders!(fig, model; layout, slider_kw, ncolumns)
 
@@ -39,13 +39,9 @@ function attach_sliders!(fig, model::AbstractModel, parent_obs;
     combined_obs = lift((s...) -> s, slider_obs...)
     if length(slider_obs) > 0
         on(combined_obs) do values
-            try
-                model[:val] = stripunits(model, values)
-                parent_obs[] = strip(model)
-                notify(parent_obs)
-            catch e
-                println(stdout, e)
-            end
+            model[:val] = stripunits(parent(model), values)
+            parent_obs[] = stripparams(model)
+            notify(parent_obs)
         end
     end
 
