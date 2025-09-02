@@ -84,7 +84,8 @@ Base.parent(m::AbstractModel) = getfield(m, :parent)
 setparent(m::AbstractModel, newparent) = @set m.parent = newparent
 
 params(m::AbstractModel) = params(parent(m))
-stripparams(m::AbstractModel) = stripparams(parent(m))
+strip(m::AbstractModel) = strip(parent(m))
+stripunits(m::AbstractModel, x) = stripunits(parent(m), x)
 function update(x::T, values) where {T<:AbstractModel}
     hasfield(T, :parent) || _updatenotdefined(T)
     setparent(x, update(parent(x), values))
@@ -92,8 +93,8 @@ end
 
 @noinline _update_methoderror(T) = error("Interface method `update` is not defined for $T")
 
-paramfieldnames(m) = Flatten.fieldnameflatten(parent(m), SELECT, IGNORE)
-paramparenttypes(m) = Flatten.metaflatten(parent(m), _fieldparentbasetype, SELECT, IGNORE)
+paramfieldnames(m) = Flatten.fieldnameflatten(parent(m), SELECTPARAM, IGNORE)
+paramparenttypes(m) = Flatten.metaflatten(parent(m), _fieldparentbasetype, SELECTPARAM, IGNORE)
 _fieldparentbasetype(T, ::Type{Val{N}}) where {N} = component(T)
 
 """
@@ -148,14 +149,14 @@ end
     newparams = map(params(obj), xs) do par, x
         rebuild(par, Setfield.set(parent(par), lens, x))
     end
-    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
+    return reconstructparams(obj, newparams)
 end
 @inline function _addindex(obj, xs::Tuple, nm::Symbol)
     lens = Setfield.ComposedLens(Setfield.PropertyLens{:parent}(), Setfield.PropertyLens{nm}())
     newparams = map(params(obj), xs) do par, x
         rebuild(par, (; parent(par)..., (nm => x,)...))
     end
-    Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
+    return reconstructparams(obj, newparams)
 end
 
 _keys(params::Tuple, m::AbstractModel) = (:component, :fieldname, keys(first(params))...)
@@ -191,7 +192,7 @@ setparent!(m::AbstractModel, newparent) = setfield!(m, :parent, newparent)
 
 update!(m::AbstractModel, vals::AbstractVector{<:AllParams}) = update!(m, Tuple(vals))
 function update!(params::Tuple{<:AllParams,Vararg{AllParams}})
-    setparent!(m, Flatten.reconstruct(parent(m), params, SELECT, IGNORE))
+    setparent!(m, reconstructparams(parent(m), params))
 end
 function update!(m::AbstractModel, table)
     cols = (c for c in Tables.columnnames(table) if !(c in (:component, :fieldname)))
@@ -219,7 +220,7 @@ mutable struct Model <: AbstractModel
         if hasparam(parent)
             # Make sure all params have all the same keys.
             expandedpars = _expandkeys(params(parent))
-            parent = Flatten.reconstruct(parent, expandedpars, SELECT, IGNORE)
+            parent = reconstructparams(parent, expandedpars)
         else
             _noparamwarning()
         end
@@ -244,7 +245,7 @@ update(x, values) = _update(ModelParameters.params(x), x, values)
 @inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,AllParams}}
     @assert length(values) == N "values length must match the number of parameters"
     newparams = _update_params(p, values)
-    Flatten.reconstruct(x, newparams, SELECT, IGNORE)
+    reconstructparams(x, newparams)
 end
 @inline function _update(p::P, x, table) where {N,P<:NTuple{N,AllParams}}
     @assert size(table, 1) == N "number of rows must match the number of parameters"
@@ -252,7 +253,7 @@ end
     newparams = map(p, tuple(1:N...)) do param, i
         Param(NamedTuple{keys(param)}(map(name -> Tables.getcolumn(table, name)[i], cols)))
     end
-    Flatten.reconstruct(x, newparams, SELECT, IGNORE)
+    return reconstructparams(x, newparams)
 end
 
 """
@@ -267,7 +268,7 @@ struct StaticModel{P} <: AbstractModel
         # Need at least 1 AbstractParam field to be a Model
         if hasparam(parent)
             expandedpars = _expandkeys(params(parent))
-            parent = Flatten.reconstruct(parent, expandedpars, SELECT, IGNORE)
+            parent = reconstructparams(parent, expandedpars)
         else
             _noparamwarning()
         end
@@ -279,17 +280,20 @@ StaticModel(m::AbstractModel) = StaticModel(parent(m))
 
 # Model Utils
 
-_expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), SELECT, IGNORE)
+_expandpars(x) = reconstructparams(parent, _expandkeys(parent))
 # Expand all Params to have the same keys, filling with `nothing`
 # This probably will allocate due to `union` returning `Vector`
 function _expandkeys(x)
     pars = params(x)
     allkeys = Tuple(union(map(keys, pars)...))
+    _expandkeys1(pars, Val{allkeys}())
+end
+Base.@assume_effects :foldable function _expandkeys1(pars, ::Val{Keys}) where Keys
     return map(pars) do par
-        vals = map(allkeys) do key
-            get(par, key, nothing)
+        vals = map(Keys) do key
+            hasproperty(par, key) ? par[key] : nothing
         end
-        rebuild(par, NamedTuple{allkeys}(vals))
+        rebuild(par, NamedTuple{Keys}(vals))
     end
 end
 
@@ -320,6 +324,7 @@ function _groupparams(m, cols::Symbol...)
     groupnames = Tuple(unique(names))
     return NamedTuple{groupnames}(Tuple(_groupparams(filter(x -> Symbol(x[col]) == n, collect(Tables.rows(m))), Base.tail(cols)...) for n in groupnames))
 end
+
 """
     mapflat(f, collection; maptype::Type=Union{NamedTuple,Tuple,AbstractArray})
 
