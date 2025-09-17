@@ -100,8 +100,8 @@ s1_rp = S1(
    s2_rp,
 )
 
-pars_p = ModelParameters.params(s1_p)
-pars_rp = ModelParameters.params(s1_rp)
+pars_p = ModelParameters.flatparams(s1_p)
+pars_rp = ModelParameters.flatparams(s1_rp)
 
 @testset "params are correctly flattened from an object" begin
     @test length(pars_p) == 8
@@ -113,7 +113,7 @@ end
 @testset "missing fields are added to Model Params" begin
     for s1 in (s1_p, s1_rp)
         m = Model(s1);
-        @test all(map(p -> propertynames(p) == (:val, :bounds), params(m)))
+        @test all(map(p -> propertynames(p) == (:val, :bounds), flatparams(m)))
     end
 end
 
@@ -155,7 +155,7 @@ end
     for s1 in (s1_p, s1_rp)
         m = Model(s1);
         stripped = stripparams(m)
-        @test params(stripped) == ()
+        @test flatparams(stripped) == ()
         @test stripped.c == 3.0
         @test stripped.f.j == 100.0
     end
@@ -237,9 +237,9 @@ end
         7,
         SA[Param(100.0) Param(200.0)]
     ) |> Model
-    @test params(s2) === (Param(99), Param(100.0), Param(200.0))
+    @test flatparams(s2) === (Param(99), Param(100.0), Param(200.0))
     s2[:val] = s2[:val] .+ 1.0
-    @test params(s2) === (Param(100.0), Param(101.0), Param(201.0))
+    @test flatparams(s2) === (Param(100.0), Param(101.0), Param(201.0))
 end
 
 @testset "type stable update" begin

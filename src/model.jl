@@ -83,7 +83,7 @@ abstract type AbstractModel end
 Base.parent(m::AbstractModel) = getfield(m, :parent)
 setparent(m::AbstractModel, newparent) = @set m.parent = newparent
 
-params(m::AbstractModel) = params(parent(m))
+flatparams(m::AbstractModel) = flatparams(parent(m))
 stripparams(m::AbstractModel) = stripparams(parent(m))
 function update(x::T, values) where {T<:AbstractModel}
     hasfield(T, :parent) || _updatenotdefined(T)
@@ -109,15 +109,15 @@ component(::Type{T}) where {T} = T.name.wrapper
 
 # It may seem expensive always calling `param`, but flattening the
 # object occurs once at compile-time, and should have very little cost here.
-Base.length(m::AbstractModel) = length(params(m))
-Base.size(m::AbstractModel) = (length(params(m)),)
-Base.first(m::AbstractModel) = first(params(m))
-Base.last(m::AbstractModel) = last(params(m))
+Base.length(m::AbstractModel) = length(flatparams(m))
+Base.size(m::AbstractModel) = (length(flatparams(m)),)
+Base.first(m::AbstractModel) = first(flatparams(m))
+Base.last(m::AbstractModel) = last(flatparams(m))
 Base.firstindex(m::AbstractModel) = 1
-Base.lastindex(m::AbstractModel) = length(params(m))
-Base.getindex(m::AbstractModel, i) = getindex(params(m), i)
-Base.iterate(m::AbstractModel) = (first(params(m)), 1)
-Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (params(m)[s], s + 1)
+Base.lastindex(m::AbstractModel) = length(flatparams(m))
+Base.getindex(m::AbstractModel, i) = getindex(flatparams(m), i)
+Base.iterate(m::AbstractModel) = (first(flatparams(m)), 1)
+Base.iterate(m::AbstractModel, s) = s > length(m) ? nothing : (flatparams(m)[s], s + 1)
 
 # Vector methods
 Base.collect(m::AbstractModel) = collect(m.val)
@@ -126,7 +126,7 @@ Base.Array(m::AbstractModel) = vec(m)
 
 # Dict methods - data as columns
 Base.haskey(m::AbstractModel, key::Symbol) = key in keys(m)
-Base.keys(m::AbstractModel) = _keys(params(m), m)
+Base.keys(m::AbstractModel) = _keys(flatparams(m), m)
 
 @inline function Base.setindex!(m::AbstractModel, x, nm::Symbol)
     if nm == :component
@@ -145,14 +145,14 @@ end
 # TODO do this with lenses
 @inline function _setindex(obj, xs::Tuple, nm::Symbol)
     lens = Setfield.PropertyLens{nm}()
-    newparams = map(params(obj), xs) do par, x
+    newparams = map(flatparams(obj), xs) do par, x
         rebuild(par, Setfield.set(parent(par), lens, x))
     end
     Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
 end
 @inline function _addindex(obj, xs::Tuple, nm::Symbol)
     lens = Setfield.ComposedLens(Setfield.PropertyLens{:parent}(), Setfield.PropertyLens{nm}())
-    newparams = map(params(obj), xs) do par, x
+    newparams = map(flatparams(obj), xs) do par, x
         rebuild(par, (; parent(par)..., (nm => x,)...))
     end
     Flatten.reconstruct(obj, newparams, SELECT, IGNORE)
@@ -167,7 +167,7 @@ _keys(params::Tuple{}, m::AbstractModel) = ()
     elseif nm == :fieldname
         paramfieldnames(m)
     else
-        map(p -> getindex(p, nm), params(m))
+        map(p -> getindex(p, nm), flatparams(m))
     end
 end
 
@@ -218,7 +218,7 @@ mutable struct Model <: AbstractModel
         # Need at least 1 AbstractParam field to be a Model
         if hasparam(parent)
             # Make sure all params have all the same keys.
-            expandedpars = _expandkeys(params(parent))
+            expandedpars = _expandkeys(flatparams(parent))
             parent = Flatten.reconstruct(parent, expandedpars, SELECT, IGNORE)
         else
             _noparamwarning()
@@ -240,7 +240,7 @@ Model(m::AbstractModel) = Model(parent(m))
     return expr
 end
 
-update(x, values) = _update(ModelParameters.params(x), x, values)
+update(x, values) = _update(ModelParameters.flatparams(x), x, values)
 @inline function _update(p::P, x, values::Union{<:AbstractVector,<:Tuple}) where {N,P<:NTuple{N,AllParams}}
     @assert length(values) == N "values length must match the number of parameters"
     newparams = _update_params(p, values)
@@ -266,7 +266,7 @@ struct StaticModel{P} <: AbstractModel
     function StaticModel(parent)
         # Need at least 1 AbstractParam field to be a Model
         if hasparam(parent)
-            expandedpars = _expandkeys(params(parent))
+            expandedpars = _expandkeys(flatparams(parent))
             parent = Flatten.reconstruct(parent, expandedpars, SELECT, IGNORE)
         else
             _noparamwarning()
@@ -283,7 +283,7 @@ _expandpars(x) = Flatten.reconstruct(parent, _expandkeys(parent), SELECT, IGNORE
 # Expand all Params to have the same keys, filling with `nothing`
 # This probably will allocate due to `union` returning `Vector`
 function _expandkeys(x)
-    pars = params(x)
+    pars = flatparams(x)
     allkeys = Tuple(union(map(keys, pars)...))
     return map(pars) do par
         vals = map(allkeys) do key

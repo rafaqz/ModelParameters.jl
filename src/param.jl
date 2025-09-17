@@ -21,12 +21,12 @@ function ConstructionBase.setproperties(p::P, patch::NamedTuple) where P<:AllPar
     P.name.wrapper(fields)
 end
 
-@inline withunits(m, args...) = map(p -> withunits(p, args...), params(m))
+@inline withunits(m, args...) = map(p -> withunits(p, args...), flatparams(m))
 @inline function withunits(p::AllParams, fn::Symbol=:val)
     _applyunits(*, getproperty(p, fn), get(p, :units, nothing))
 end
 
-@inline stripunits(m, xs) = map(stripunits, params(m), xs)
+@inline stripunits(m, xs) = map(stripunits, flatparams(m), xs)
 @inline function stripunits(p::AllParams, x)
     _applyunits(/, x, get(p, :units, nothing))
 end
@@ -141,12 +141,12 @@ RealParam(val::Real; kwargs...) = RealParam((; val=val, kwargs...))
 Param(val::Number; kwargs...) = Param((; val=val, kwargs...))
 
 # Methods for objects that hold params
-params(x) = Flatten.flatten(x, SELECT, IGNORE)
+flatparams(x) = Flatten.flatten(x, SELECT, IGNORE)
 stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), SELECT, IGNORE) : x
 
 
 # Utils
-hasparam(obj) = length(params(obj)) > 0
+hasparam(obj) = length(flatparams(obj)) > 0
 
 function _checkhasval(::Type{T}, nt::NamedTuple{Keys}) where {T,Keys}
     first(Keys) == :val || _novalerror(nt)

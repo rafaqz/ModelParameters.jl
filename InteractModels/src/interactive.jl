@@ -138,7 +138,7 @@ end
 function attach_sliders!(model::AbstractModel;
     ncolumns=nothing, submodel=Nothing, throttle=0.1, obs=nothing, f=identity
 )
-    length(params(model)) == 0 && return hbox()
+    length(flatparams(model)) == 0 && return hbox()
 
     sliderbox = if submodel === Nothing
         objpercol = 3
@@ -183,7 +183,7 @@ function _in_columns(objects, ncolumns, objpercol)
 end
 
 function param_sliders(model::AbstractModel; throttle=0.1)
-    length(params(model)) == 0 && return [], []
+    length(flatparams(model)) == 0 && return [], []
 
     labels = if haskey(model, :label)
         map(model[:label], model[:fieldname]) do n, fn

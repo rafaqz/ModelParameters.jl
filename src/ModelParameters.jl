@@ -1,4 +1,5 @@
 module ModelParameters
+
 # Use the README as the module docs
 @doc let
     path = joinpath(dirname(@__DIR__), "README.md")
@@ -18,7 +19,7 @@ export AbstractModel, Model, StaticModel, MakieModel
 
 export AbstractParam, Param, RealParam
 
-export params, printparams, stripparams, update, update!, withunits, stripunits, groupparams, mapflat
+export flatparams, printparams, stripparams, update, update!, withunits, stripunits, groupparams, mapflat
 
 include("interface.jl")
 include("param.jl")

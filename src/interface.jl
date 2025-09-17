@@ -1,10 +1,10 @@
 """
-    params(object)
-    params(model::AbstractModel)
+    flatparams(object)
+    flatparams(model::AbstractModel)
 
 Returns a tuple of all `Param`s in the model or arbitrary object.
 """
-function params end
+function flatparams end
 
 """
     printparams(object)
