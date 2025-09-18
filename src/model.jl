@@ -338,3 +338,5 @@ function mapflat(f, collection; maptype::Type{T}=Union{NamedTuple,Tuple,Abstract
     select(x::T) = map(select, x)
     return map(select, collection)
 end
+
+selectrecursive(selector, ps::AbstractModel) = selectrecursive(selector, parent(ps))

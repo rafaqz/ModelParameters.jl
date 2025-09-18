@@ -100,14 +100,24 @@ s1_rp = S1(
    s2_rp,
 )
 
-pars_p = ModelParameters.flatparams(s1_p)
-pars_rp = ModelParameters.flatparams(s1_rp)
+ps_s1 = ModelParameters.flatparams(s1_p)
+rps_s1 = ModelParameters.flatparams(s1_rp)
 
-@testset "params are correctly flattened from an object" begin
-    @test length(pars_p) == 8
-    @test all(map(p -> isa(p, Param), pars_p))
-    @test length(pars_rp) == 8
-    @test all(map(p -> isa(p, RealParam), pars_rp))
+@testset "flatparams correctly flattens parameters from an object" begin
+    @test length(ps_s1) == 8
+    @test all(map(p -> isa(p, Param), ps_s1))
+    @test length(rps_s1) == 8
+    @test all(map(p -> isa(p, RealParam), rps_s1))
+end
+
+@testset "params returns correctly nested parameters" begin
+    nested_ps = ModelParameters.params(s1_p)
+    @test nested_ps.a == s1_p.a
+    @test nested_ps.b == s1_p.b
+    @test nested_ps.c == s1_p.c
+    @test nested_ps.d == s1_p.d
+    @test nested_ps.e == s1_p.e
+    @test nested_ps.f == params(s1_p.f)
 end
 
 @testset "missing fields are added to Model Params" begin
@@ -335,4 +345,70 @@ end
         ran[] = true 
     end
     @test ran[]
+end
+
+@testset "@parameterized" begin
+    # test single parameter, no kwdef
+    @parameterized struct TestType1{T}
+        "non parameter"
+        x::T
+        "parameter"
+        @param y::T
+    end
+    obj1 = TestType1(0.0,1.0)
+    ps1 = params(obj1)
+    @test length(flatparams(ps1)) == 1
+    @test ps1.y == 1.0
+    @test Model(ps1)[:desc] == ("parameter",)
+
+    # test two parameters, no kwdef
+    @parameterized struct TestType2{TX,TY,TZ}
+        "parameter"
+        @param x::TX
+        "non-parameter"
+        y::TY
+        @param z::TZ
+    end
+    obj2 = TestType2(0.0,1.0,2.0)
+    ps2 = params(obj2)
+    @test length(flatparams(ps2)) == 2
+    @test Model(ps2)[:desc] == ("parameter","")
+
+    # test one parameter, with kwdef
+    @parameterized @kwdef struct TestType3{T}
+        "parameter"
+        @param x::T = 1.0
+        "non-parameter"
+        y::T = 2.0
+    end
+    obj3 = TestType3()
+    ps3 = params(obj3)
+    @test length(ps3) == 1
+    @test Model(ps3)[:desc] == ("parameter",)
+
+    # test multiple parameters, with kwdef
+    @parameterized @kwdef struct TestType4{T1,T2}
+        "parameter 1"
+        @param x::T1 = 1.0
+        "parameter 2"
+        @param y::T1 = 2.0
+        @param z::T2 = 3.0
+        label::String = "test"
+    end
+    obj4 = TestType4()
+    ps4 = params(obj4)
+    @test length(flatparams(ps4)) == 3
+    @test all(map(∈(keys(ps4)), (:x, :y, :z)))
+    @test !haskey(ps4, :label)
+    @test Model(ps4)[:desc] == ("parameter 1","parameter 2","")
+
+    # test parameters for nested type
+    @parameterized @kwdef struct OuterType{T}
+        @param component::T = TestType4() (group=:group1,)
+    end
+    outer = OuterType()
+    pso = params(outer)
+    @test length(flatparams(pso)) == 3
+    @test haskey(pso, :component)
+    @test all(map(==(:group1), Model(pso)[:group]))
 end

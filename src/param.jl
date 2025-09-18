@@ -144,7 +144,6 @@ Param(val::Number; kwargs...) = Param((; val=val, kwargs...))
 flatparams(x) = Flatten.flatten(x, SELECT, IGNORE)
 stripparams(x) = hasparam(x) ? Flatten.reconstruct(x, withunits(x), SELECT, IGNORE) : x
 
-
 # Utils
 hasparam(obj) = length(flatparams(obj)) > 0
 
