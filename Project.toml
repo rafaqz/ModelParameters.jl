@@ -1,7 +1,7 @@
 name = "ModelParameters"
 uuid = "4744a3fa-6c31-4707-899e-a3298e4618ad"
 authors = ["Rafael Schouten <rafaelschouten@gmail.com> and contributors"]
-version = "0.4.5"
+version = "0.4.6"
 
 [deps]
 AbstractNumbers = "85c772de-338a-5e7f-b815-41e76c26ac1f"
@@ -24,22 +24,20 @@ AbstractNumbers = "0.2.5"
 Aqua = "0.8"
 BenchmarkTools = "1"
 ConstructionBase = "1"
-ConstructionBaseExtras = "0.1"
 DataFrames = "1"
 Flatten = "0.4"
 Makie = "0.21, 0.22, 0.23, 0.24"
-PrettyTables = "0.8, 0.9, 0.10, 0.11, 0.12, 1, 2"
+PrettyTables = "0.8, 0.9, 0.10, 0.11, 0.12, 1, 2, 3"
 Setfield = "0.6, 0.7, 0.8, 1"
 StaticArrays = "1"
 Tables = "1"
 Test = "1"
 Unitful = "1"
-julia = "1.10"
+julia = "1.10, 1.11"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-ConstructionBaseExtras = "914cd950-b775-4282-9f32-54fc4544c321"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -47,4 +45,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [targets]
-test = ["Aqua", "BenchmarkTools", "ConstructionBaseExtras", "DataFrames", "Makie", "StaticArrays", "Test", "Unitful"]
+test = ["Aqua", "BenchmarkTools", "DataFrames", "Makie", "StaticArrays", "Test", "Unitful"]
